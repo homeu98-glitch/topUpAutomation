@@ -136,6 +136,12 @@ function openPicker() {
   fileInput.click();
 }
 
+function resetResults() {
+  resultCard.classList.add("hidden");
+  detailList.innerHTML = "";
+  totalAmount.textContent = formatCurrency(0);
+}
+
 function renderSelectedFiles() {
   selectedPreviewList.innerHTML = "";
 
@@ -149,7 +155,7 @@ function renderSelectedFiles() {
   selectedCard.classList.remove("hidden");
   selectionCount.textContent = `${selectedFiles.length} 張`;
 
-  selectedFiles.forEach((file) => {
+  selectedFiles.forEach((file, index) => {
     const item = document.createElement("div");
     item.className = "selected-item";
 
@@ -165,6 +171,24 @@ function renderSelectedFiles() {
     image.src = previewUrl;
     image.alt = file.name;
 
+    const badge = document.createElement("div");
+    badge.className = "selected-item-badge";
+    badge.textContent = `交易明細 ${index + 1}`;
+
+    const removeButton = document.createElement("button");
+    removeButton.type = "button";
+    removeButton.className = "selected-item-remove";
+    removeButton.setAttribute("aria-label", `刪除 ${file.name}`);
+    removeButton.textContent = "×";
+    removeButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      selectedFiles = selectedFiles.filter((_, fileIndex) => fileIndex !== index);
+      fileInput.value = "";
+      resetError();
+      resetResults();
+      renderSelectedFiles();
+    });
+
     const body = document.createElement("div");
     body.className = "selected-item-body";
     body.innerHTML = `
@@ -173,7 +197,7 @@ function renderSelectedFiles() {
     `;
 
     button.appendChild(image);
-    item.append(button, body);
+    item.append(button, badge, removeButton, body);
     selectedPreviewList.appendChild(item);
   });
 }
@@ -311,6 +335,7 @@ fileInput.addEventListener("change", (event) => {
   }
 
   selectedFiles = files;
+  resetResults();
   renderSelectedFiles();
 });
 

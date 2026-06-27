@@ -45,6 +45,15 @@ npm start
 
 Then open `http://localhost:3000`.
 
+## Important deployment note
+
+This project is not a pure static website.
+
+- The upload and AI recognition flow requires the Node.js backend in `server.js`
+- If you open only the frontend on a static host such as GitHub Pages, the `POST /api/analyze` request will fail because there is no backend there
+- For production, deploy the backend to a server platform such as Railway, Render, Fly.io, ECS, or another Node-capable environment
+- If frontend and backend are hosted separately, set `window.APP_CONFIG.apiBaseUrl` in `public/index.html`
+
 ## Notes
 
 - The 8-digit member code is not enforced yet, but the frontend already accepts `?memberCode=12345678` for future integration.

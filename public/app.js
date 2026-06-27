@@ -17,6 +17,7 @@ const dialogImage = document.getElementById("dialogImage");
 const closeDialogButton = document.getElementById("closeDialogButton");
 
 let selectedFiles = [];
+const apiBaseUrl = (window.APP_CONFIG?.apiBaseUrl || "").replace(/\/$/, "");
 
 function getMemberCode() {
   const params = new URLSearchParams(window.location.search);
@@ -44,6 +45,28 @@ function resetError() {
 function showError(message) {
   errorCard.textContent = message;
   errorCard.classList.remove("hidden");
+}
+
+async function parseApiResponse(response) {
+  const contentType = response.headers.get("content-type") || "";
+
+  if (contentType.includes("application/json")) {
+    return response.json();
+  }
+
+  const text = await response.text();
+  const normalizedText = text.trim();
+
+  if (
+    normalizedText.toLowerCase().startsWith("<!doctype") ||
+    normalizedText.toLowerCase().startsWith("<html") ||
+    normalizedText.toLowerCase().includes("the page could not be found") ||
+    normalizedText.toLowerCase().includes("cannot post /api/analyze")
+  ) {
+    throw new Error("目前前端頁面已打開，但後端 API 沒有正常運行。若你是用 GitHub Pages 開啟，圖片上傳功能不會工作，因為它需要 Node.js 後端。");
+  }
+
+  throw new Error(normalizedText || "伺服器回傳了非 JSON 格式內容，請檢查後端是否正常啟動。");
 }
 
 function openPicker() {
@@ -195,12 +218,12 @@ async function uploadFiles() {
       formData.append("memberCode", memberCode);
     }
 
-    const response = await fetch("/api/analyze", {
+    const response = await fetch(`${apiBaseUrl}/api/analyze`, {
       method: "POST",
       body: formData,
     });
 
-    const payload = await response.json();
+    const payload = await parseApiResponse(response);
     if (!response.ok) {
       throw new Error(payload.error || "上傳失敗");
     }

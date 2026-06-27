@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 
 import formidable from "formidable";
 
-import { applyCors, createTransactionSubmission } from "../../lib/topup-service.js";
+import { applyCors, createTransactionSubmission, getShopById } from "../../lib/topup-service.js";
 import { readSession } from "../../lib/session.js";
 
 export const config = {
@@ -50,13 +50,14 @@ export default async function handler(req, res) {
 
   try {
     const session = readSession(req);
-    if (!session || session.role !== "customer" || !session.shopId || !session.memberCode) {
+    if (!session || session.role !== "customer" || !session.memberCode) {
       return res.status(401).json({ error: "請先以客戶身份登入" });
     }
 
     const { fields, files } = await parseForm(req);
     const uploadedFiles = normalizeArray(files.images);
     const analyzedDataRaw = normalizeArray(fields.analyzedData)[0];
+    const shopId = String(normalizeArray(fields.shopId)[0] || "");
 
     if (!uploadedFiles.length) {
       return res.status(400).json({ error: "請先上傳圖片" });
@@ -64,6 +65,11 @@ export default async function handler(req, res) {
 
     if (!analyzedDataRaw) {
       return res.status(400).json({ error: "請先完成辨識後再送出" });
+    }
+
+    const shop = await getShopById(shopId);
+    if (!shop) {
+      return res.status(400).json({ error: "請先選擇有效店舖" });
     }
 
     const analyzedPayload = JSON.parse(String(analyzedDataRaw));
@@ -79,7 +85,7 @@ export default async function handler(req, res) {
     );
 
     const payload = await createTransactionSubmission({
-      shopId: session.shopId,
+      shopId: shop.id,
       customerCode: session.memberCode,
       files: normalizedFiles,
       analyzedItems,

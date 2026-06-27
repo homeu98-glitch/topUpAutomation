@@ -11,15 +11,8 @@
       <header class="hero hero-compact">
         <div>
           <div class="eyebrow">Top Up Automation POC</div>
-          <h1>客戶上傳入口</h1>
-          <p class="subtitle">登入後即可上傳付款截圖，辨識後再送交店主審核。</p>
-        </div>
-        <div class="header-tools">
-          <label class="shop-picker">
-            <span>店舖</span>
-            <select id="shopSelect"></select>
-          </label>
-          <a class="secondary-button nav-link" href="/owner.html">店主登入</a>
+          <h1>充值上傳</h1>
+          <p class="subtitle">登入後上傳截圖並送交店主審核。</p>
         </div>
       </header>
 
@@ -27,20 +20,36 @@
 
       <section id="customerLoginCard" class="card login-card">
         <div class="section-header">
-          <h2>客戶登入</h2>
+          <h2>登入</h2>
           <span class="pill">POC</span>
         </div>
-        <p class="subtitle compact-subtitle">請輸入 8 位會員編號，並確認右上角已選好要充值的店舖。</p>
-        <div class="login-row">
-          <input id="memberCodeInput" class="text-input" type="text" inputmode="numeric" maxlength="8" placeholder="輸入 8 位會員編號" />
-          <button id="customerLoginButton" class="primary-button" type="button">登入並開始上傳</button>
+        <div class="tab-bar auth-toggle">
+          <button id="customerModeButton" class="tab-button active" type="button">客戶</button>
+          <button id="ownerModeButton" class="tab-button" type="button">店主</button>
+        </div>
+
+        <div id="customerLoginPane">
+          <p class="subtitle compact-subtitle">請輸入 8 位會員編號和 4 位密碼。</p>
+          <div class="login-grid">
+            <input id="memberCodeInput" class="text-input" type="text" inputmode="numeric" maxlength="8" placeholder="會員編號，例如 63936541" />
+            <input id="customerPasswordInput" class="text-input" type="password" inputmode="numeric" maxlength="4" placeholder="4 位密碼，例如 1234" />
+            <button id="customerLoginButton" class="primary-button" type="button">登入並開始上傳</button>
+          </div>
+        </div>
+
+        <div id="ownerLoginPane" class="hidden">
+          <p class="subtitle compact-subtitle">店主帳號為 8 位數字，密碼為 4 位數字。</p>
+          <div class="login-grid">
+            <input id="ownerCodeInput" class="text-input" type="text" inputmode="numeric" maxlength="8" placeholder="店主帳號，例如 60000000" />
+            <input id="ownerPasswordInput" class="text-input" type="password" inputmode="numeric" maxlength="4" placeholder="4 位密碼，例如 0000" />
+            <button id="ownerLoginButton" class="primary-button" type="button">登入店主後台</button>
+          </div>
         </div>
       </section>
 
       <section id="customerInfoCard" class="card hidden">
         <div class="session-bar">
           <div class="session-info">
-            <span id="currentShopBadge" class="pill">未選擇店舖</span>
             <span id="currentMemberBadge" class="pill subtle-pill">未登入</span>
           </div>
           <button id="customerLogoutButton" class="secondary-button" type="button">登出</button>
@@ -48,6 +57,15 @@
       </section>
 
       <main id="customerPortal" class="hidden">
+        <section class="card portal-toolbar">
+          <div class="header-tools">
+            <label class="shop-picker">
+              <span>選擇充值店舖</span>
+              <select id="shopSelect"></select>
+            </label>
+          </div>
+        </section>
+
         <section id="introCard" class="card upload-card">
           <div class="upload-icon">＋</div>
           <h2>選擇交易截圖</h2>

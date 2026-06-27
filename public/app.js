@@ -8,17 +8,25 @@ const state = {
   user: null,
   selectedFiles: [],
   analyzedPayload: null,
+  authMode: "customer",
 };
 
 const fileInput = document.getElementById("fileInput");
 const shopSelect = document.getElementById("shopSelect");
 const memberCodeInput = document.getElementById("memberCodeInput");
+const customerPasswordInput = document.getElementById("customerPasswordInput");
 const customerLoginButton = document.getElementById("customerLoginButton");
+const ownerCodeInput = document.getElementById("ownerCodeInput");
+const ownerPasswordInput = document.getElementById("ownerPasswordInput");
+const ownerLoginButton = document.getElementById("ownerLoginButton");
+const customerModeButton = document.getElementById("customerModeButton");
+const ownerModeButton = document.getElementById("ownerModeButton");
+const customerLoginPane = document.getElementById("customerLoginPane");
+const ownerLoginPane = document.getElementById("ownerLoginPane");
 const customerLoginCard = document.getElementById("customerLoginCard");
 const customerInfoCard = document.getElementById("customerInfoCard");
 const customerPortal = document.getElementById("customerPortal");
 const customerLogoutButton = document.getElementById("customerLogoutButton");
-const currentShopBadge = document.getElementById("currentShopBadge");
 const currentMemberBadge = document.getElementById("currentMemberBadge");
 const selectButton = document.getElementById("selectButton");
 const fallbackSelectButton = document.getElementById("fallbackSelectButton");
@@ -131,10 +139,18 @@ function renderShopOptions() {
     .map((shop) => `<option value="${shop.id}">${shop.name}</option>`)
     .join("");
 
-  const selectedShopId = state.user?.shopId || state.shops[0]?.id || "";
+  const selectedShopId = shopSelect.value || state.user?.shopId || state.shops[0]?.id || "";
   if (selectedShopId) {
     shopSelect.value = selectedShopId;
   }
+}
+
+function renderAuthMode() {
+  const isCustomer = state.authMode === "customer";
+  customerModeButton.classList.toggle("active", isCustomer);
+  ownerModeButton.classList.toggle("active", !isCustomer);
+  customerLoginPane.classList.toggle("hidden", !isCustomer);
+  ownerLoginPane.classList.toggle("hidden", isCustomer);
 }
 
 function renderCustomerSession() {
@@ -144,16 +160,12 @@ function renderCustomerSession() {
   customerPortal.classList.toggle("hidden", !isLoggedIn);
 
   if (!isLoggedIn) {
-    currentShopBadge.textContent = "未選擇店舖";
     currentMemberBadge.textContent = "未登入";
     return;
   }
 
-  currentShopBadge.textContent = state.user.shopName || "未選擇店舖";
   currentMemberBadge.textContent = `會員 ${state.user.memberCode}`;
-  if (state.user.shopId) {
-    shopSelect.value = state.user.shopId;
-  }
+  renderShopOptions();
 }
 
 function createDetailRow(label, value, extraClass = "") {
@@ -269,26 +281,34 @@ async function checkBackendAvailability(showInlineError = false) {
 }
 
 async function loadShops() {
-  const payload = await apiFetch("/api/shops");
-  state.shops = payload.shops || [];
+  try {
+    const payload = await apiFetch("/api/shops");
+    state.shops = payload.shops || [];
+  } catch {
+    state.shops = [{ id: "fallback-shop", name: "表嫂美食" }];
+  }
   renderShopOptions();
 }
 
 async function loadSession() {
   const payload = await apiFetch("/api/auth/me");
   state.user = payload.user;
+  if (state.user?.role === "owner") {
+    window.location.href = "/owner.html";
+    return;
+  }
   renderCustomerSession();
 }
 
-async function loginCustomer(memberCode = memberCodeInput.value.trim(), silent = false) {
+async function loginCustomer(memberCode = memberCodeInput.value.trim(), password = customerPasswordInput.value.trim(), silent = false) {
   resetError();
 
   if (!/^\d{8}$/.test(memberCode)) {
     showError("請輸入 8 位會員編號");
     return;
   }
-  if (!shopSelect.value) {
-    showError("請先選擇店舖");
+  if (!/^\d{4}$/.test(password)) {
+    showError("請輸入 4 位密碼");
     return;
   }
 
@@ -298,13 +318,13 @@ async function loginCustomer(memberCode = memberCodeInput.value.trim(), silent =
       method: "POST",
       body: JSON.stringify({
         memberCode,
-        shopId: shopSelect.value,
+        password,
       }),
     });
     state.user = payload.user;
     renderCustomerSession();
     if (!silent) {
-      showStatus("登入成功，請選擇付款截圖。", "info");
+      showStatus("登入成功，請先選擇充值店舖，再上傳付款截圖。", "info");
       setTimeout(() => openPicker(), 250);
     }
   } catch (error) {
@@ -319,6 +339,7 @@ async function logoutCustomer() {
   state.user = null;
   state.selectedFiles = [];
   memberCodeInput.value = "";
+  customerPasswordInput.value = "";
   resetResults();
   renderSelectedFiles();
   renderCustomerSession();
@@ -339,6 +360,11 @@ async function analyzeFiles() {
 
   if (!state.selectedFiles.length) {
     showError("請先選擇至少一張圖片。");
+    return;
+  }
+
+  if (!shopSelect.value || shopSelect.value === "fallback-shop") {
+    showError("請先選擇有效店舖。");
     return;
   }
 
@@ -379,12 +405,17 @@ async function submitForApproval() {
     showError("請先完成辨識再送審");
     return;
   }
+  if (!shopSelect.value || shopSelect.value === "fallback-shop") {
+    showError("請先選擇有效店舖。");
+    return;
+  }
 
   setConfirmState(true, "送審中...");
   try {
     const formData = new FormData();
     state.selectedFiles.forEach((file) => formData.append("images", file));
     formData.append("analyzedData", JSON.stringify(state.analyzedPayload));
+    formData.append("shopId", shopSelect.value);
 
     const response = await fetch(`${apiBaseUrl}/api/customer/submit`, {
       method: "POST",
@@ -403,21 +434,97 @@ async function submitForApproval() {
   }
 }
 
+async function loginOwnerFromMain() {
+  resetError();
+  if (!/^\d{8}$/.test(ownerCodeInput.value.trim())) {
+    showError("請輸入 8 位店主帳號");
+    return;
+  }
+  if (!/^\d{4}$/.test(ownerPasswordInput.value.trim())) {
+    showError("請輸入 4 位密碼");
+    return;
+  }
+
+  ownerLoginButton.disabled = true;
+  try {
+    await apiFetch("/api/auth/owner-login", {
+      method: "POST",
+      body: JSON.stringify({
+        login: ownerCodeInput.value.trim(),
+        password: ownerPasswordInput.value.trim(),
+      }),
+    });
+    window.location.href = "/owner.html";
+  } catch (error) {
+    showError(error instanceof Error ? error.message : "店主登入失敗");
+  } finally {
+    ownerLoginButton.disabled = false;
+  }
+}
+
+async function optimizeImageFile(file) {
+  if (!file.type.startsWith("image/") || typeof createImageBitmap !== "function") {
+    return file;
+  }
+
+  try {
+    const bitmap = await createImageBitmap(file);
+    const maxSide = 1080;
+    const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
+    const width = Math.max(1, Math.round(bitmap.width * scale));
+    const height = Math.max(1, Math.round(bitmap.height * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext("2d");
+    context.drawImage(bitmap, 0, 0, width, height);
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.75));
+    bitmap.close?.();
+    if (!blob || blob.size >= file.size) {
+      return file;
+    }
+    return new File([blob], file.name.replace(/\.\w+$/, ".jpg"), {
+      type: "image/jpeg",
+      lastModified: Date.now(),
+    });
+  } catch {
+    return file;
+  }
+}
+
+async function optimizeSelectedFiles(files) {
+  showStatus("正在優化圖片大小，以加快辨識速度...", "info");
+  const optimizedFiles = await Promise.all(files.map((file) => optimizeImageFile(file)));
+  hideStatus();
+  return optimizedFiles;
+}
+
 shopSelect.addEventListener("change", async () => {
-  if (state.user?.role === "customer" && state.user.memberCode) {
-    await loginCustomer(state.user.memberCode, true);
-    showStatus(`已切換至 ${state.user?.shopName || "新店舖"}`, "info");
+  if (state.user?.role === "customer") {
+    const selectedShop = state.shops.find((shop) => shop.id === shopSelect.value);
+    if (selectedShop) {
+      showStatus(`已選擇店舖：${selectedShop.name}`, "info");
+    }
   }
 });
 
 customerLoginButton.addEventListener("click", () => loginCustomer());
+ownerLoginButton.addEventListener("click", loginOwnerFromMain);
 customerLogoutButton.addEventListener("click", logoutCustomer);
 selectButton.addEventListener("click", openPicker);
 fallbackSelectButton.addEventListener("click", openPicker);
 uploadButton.addEventListener("click", analyzeFiles);
 confirmResultButton.addEventListener("click", submitForApproval);
+customerModeButton.addEventListener("click", () => {
+  state.authMode = "customer";
+  renderAuthMode();
+});
+ownerModeButton.addEventListener("click", () => {
+  state.authMode = "owner";
+  renderAuthMode();
+});
 
-fileInput.addEventListener("change", (event) => {
+fileInput.addEventListener("change", async (event) => {
   resetError();
   const files = Array.from(event.target.files || []);
   if (!files.length) return;
@@ -426,7 +533,8 @@ fileInput.addEventListener("change", (event) => {
     fileInput.value = "";
     return;
   }
-  state.selectedFiles = files;
+
+  state.selectedFiles = await optimizeSelectedFiles(files);
   resetResults();
   renderSelectedFiles();
 });
@@ -445,6 +553,7 @@ imageDialog.addEventListener("click", (event) => {
 
 window.addEventListener("load", async () => {
   try {
+    renderAuthMode();
     await Promise.all([loadShops(), loadSession(), checkBackendAvailability()]);
   } catch (error) {
     showError(error instanceof Error ? error.message : "初始化失敗");

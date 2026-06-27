@@ -41,7 +41,8 @@ table {
 
 .compact-page {
   max-width: 920px;
-  padding-top: 24px;
+  padding-top: 16px;
+  padding-bottom: 40px;
 }
 
 .hero,
@@ -104,7 +105,7 @@ h1 {
 }
 
 .customer-page h1 {
-  font-size: clamp(26px, 5vw, 34px);
+  font-size: clamp(22px, 4.8vw, 28px);
 }
 
 h2 {
@@ -133,8 +134,8 @@ td {
 }
 
 .customer-page .card {
-  padding: 18px;
-  border-radius: 18px;
+  padding: 14px;
+  border-radius: 16px;
 }
 
 .upload-card,
@@ -168,7 +169,8 @@ td {
 }
 
 .compact-subtitle {
-  margin-top: 8px;
+  margin-top: 6px;
+  font-size: 14px;
 }
 
 .upload-icon {
@@ -209,7 +211,7 @@ td {
 .date-filters input {
   border: 1px solid var(--line);
   border-radius: 14px;
-  padding: 12px 14px;
+  padding: 10px 12px;
   background: #fff;
   min-width: 0;
 }
@@ -246,6 +248,11 @@ td {
   justify-content: flex-start;
 }
 
+.portal-toolbar {
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
 .primary-button {
   background: var(--primary);
   color: #fff;
@@ -267,7 +274,7 @@ td {
 .selected-preview-list {
   display: grid;
   grid-auto-flow: column;
-  grid-auto-columns: minmax(200px, 260px);
+  grid-auto-columns: minmax(170px, 220px);
   gap: 16px;
   overflow-x: auto;
   padding-bottom: 8px;
@@ -285,14 +292,14 @@ td {
 
 .selected-item img {
   width: 100%;
-  aspect-ratio: 4 / 5;
+  aspect-ratio: 3 / 4;
   object-fit: cover;
   display: block;
   background: #f3f4f6;
 }
 
 .selected-item-body {
-  padding: 12px 14px;
+  padding: 10px 12px;
 }
 
 .selected-item-button {
@@ -362,6 +369,10 @@ td {
   margin-top: 6px;
 }
 
+.customer-page .summary-value {
+  font-size: clamp(24px, 6vw, 32px);
+}
+
 .small-value {
   font-size: clamp(24px, 3vw, 32px);
 }
@@ -382,7 +393,8 @@ td {
 }
 
 .detail-card .detail-note {
-  margin-top: 6px;
+  margin-top: 4px;
+  font-size: 14px;
 }
 
 .detail-card .compression-note {
@@ -579,7 +591,7 @@ th {
   }
 
   .selected-preview-list {
-    grid-auto-columns: minmax(220px, 84vw);
+    grid-auto-columns: minmax(160px, 62vw);
   }
 
   .dashboard-grid {

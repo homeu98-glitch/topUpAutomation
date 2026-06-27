@@ -31,6 +31,17 @@ create index if not exists idx_transactions_shop_time
 
 insert into public.shops (code, name, owner_login, owner_password)
 values
-  ('POC001', '表嫂美食', 'owner-biuso', '123456'),
+  ('POC001', '表嫂美食', '60000000', '0000'),
   ('POC002', '示範茶餐廳', 'owner-demo', '123456')
 on conflict (code) do nothing;
+
+create table if not exists public.customer_accounts (
+  code text primary key,
+  password text not null,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
+insert into public.customer_accounts (code, password)
+values ('63936541', '1234')
+on conflict (code) do update set password = excluded.password;

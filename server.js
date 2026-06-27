@@ -4,11 +4,11 @@ import { fileURLToPath } from "node:url";
 import express from "express";
 import multer from "multer";
 import {
+  analyzeUploadedFiles,
   ensureStorageDir,
   getHealthPayload,
   HAS_SUPABASE_STORAGE,
   normalizeMemberCode,
-  processUploadedFiles,
 } from "./lib/topup-service.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -57,7 +57,7 @@ app.post("/api/analyze", upload.array("images", 10), async (req, res) => {
     }
 
     const memberCode = normalizeMemberCode(req.body.memberCode);
-    const payload = await processUploadedFiles(files, memberCode);
+    const payload = await analyzeUploadedFiles(files, memberCode);
     res.json(payload);
   } catch (error) {
     res.status(500).json({

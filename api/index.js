@@ -33,6 +33,51 @@ export default async function handler(req, res) {
     return analyzeHandler(req, res);
   }
 
+  if (pathname.endsWith("/shops")) {
+    const { default: shopsHandler } = await import("./shops.js");
+    return shopsHandler(req, res);
+  }
+
+  if (pathname.endsWith("/auth/me")) {
+    const { default: meHandler } = await import("./auth/me.js");
+    return meHandler(req, res);
+  }
+
+  if (pathname.endsWith("/auth/customer-login")) {
+    const { default: customerLoginHandler } = await import("./auth/customer-login.js");
+    return customerLoginHandler(req, res);
+  }
+
+  if (pathname.endsWith("/auth/owner-login")) {
+    const { default: ownerLoginHandler } = await import("./auth/owner-login.js");
+    return ownerLoginHandler(req, res);
+  }
+
+  if (pathname.endsWith("/auth/logout")) {
+    const { default: logoutHandler } = await import("./auth/logout.js");
+    return logoutHandler(req, res);
+  }
+
+  if (pathname.endsWith("/customer/submit")) {
+    const { default: submitHandler } = await import("./customer/submit.js");
+    return submitHandler(req, res);
+  }
+
+  if (pathname.endsWith("/owner/dashboard")) {
+    const { default: dashboardHandler } = await import("./owner/dashboard.js");
+    return dashboardHandler(req, res);
+  }
+
+  if (pathname.endsWith("/owner/transactions")) {
+    const { default: transactionsHandler } = await import("./owner/transactions.js");
+    return transactionsHandler(req, res);
+  }
+
+  if (pathname.endsWith("/owner/approve")) {
+    const { default: approveHandler } = await import("./owner/approve.js");
+    return approveHandler(req, res);
+  }
+
   return res.status(200).json({
     ok: true,
     route: "api/index",

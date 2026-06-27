@@ -1,13 +1,19 @@
 # Top Up Automation POC
 
-This is a lightweight proof of concept for Macau top-up users to upload payment screenshots, run AI extraction, and review transaction details in a simple Traditional Chinese interface.
+This is a lightweight proof of concept for Macau top-up users and shop owners:
+
+- customer portal: login, pick a shop, upload screenshots, run AI extraction, and send the result for approval
+- owner portal: login, review pending submissions, approve transactions, and view dashboard/history
 
 ## What is included
 
 - Traditional Chinese upload page with a simple Google-style visual direction
+- Customer login with 8-digit member code
+- Shop selector for the customer portal
+- Owner login and review back office
 - Auto-attempt to open the gallery on page load
 - Multiple image selection with a maximum of 10 files
-- Server-side image compression before storage
+- Faster server-side image compression before storage
 - AI-based extraction for:
   - 商戶名稱
   - 原交易訂單號
@@ -15,16 +21,21 @@ This is a lightweight proof of concept for Macau top-up users to upload payment 
   - 實際交易時間
   - 訂單狀態
   - 支付方式
-- Horizontal preview slider with click-to-expand image modal
-- Total amount summary
+- Total amount summary with explicit send-for-approval action
+- Owner dashboard with pending review and history tabs
 
 ## Project structure
 
-- `server.js`: Express server, upload handling, compression, AI proxy
+- `server.js`: local Express development server
+- `public/index.html`: customer portal
+- `public/owner.html`: owner back office
 - `public/index.html`: Main page
 - `public/styles.css`: Styling
-- `public/app.js`: Frontend interactions
-- `storage/`: Compressed uploaded images
+- `public/app.js`: customer interactions
+- `public/owner.js`: owner back office interactions
+- `api/`: Vercel API routes
+- `lib/`: shared backend logic
+- `supabase/schema.sql`: required database schema and sample seed rows
 
 ## Environment
 
@@ -36,6 +47,7 @@ Copy `.env.example` to `.env` and set:
 - `SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `SUPABASE_STORAGE_BUCKET`
+- `SESSION_SECRET`
 
 The current POC is configured for an OpenAI-compatible vision endpoint.
 
@@ -74,6 +86,8 @@ This repo now supports Vercel API routing and Supabase Storage.
 - For Vercel, use Supabase Storage because Vercel local filesystem is not suitable for persistent image storage
 
 Create a public storage bucket such as `topup-images` in Supabase before deploying.
+
+Run `supabase/schema.sql` in your Supabase SQL editor before using owner login, approval, dashboard, and history features.
 
 ## Fastest working deployment
 

@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 
 import formidable from "formidable";
 
-import { applyCors, normalizeMemberCode, processUploadedFiles } from "../lib/topup-service.js";
+import { applyCors, analyzeUploadedFiles, normalizeMemberCode } from "../lib/topup-service.js";
 
 export const config = {
   api: {
@@ -72,7 +72,7 @@ export default async function handler(req, res) {
     );
 
     const memberCode = normalizeMemberCode(normalizeArray(fields.memberCode)[0]);
-    const payload = await processUploadedFiles(normalizedFiles, memberCode);
+    const payload = await analyzeUploadedFiles(normalizedFiles, memberCode);
     return res.status(200).json(payload);
   } catch (error) {
     return res.status(500).json({

@@ -1,7 +1,30 @@
+const apiBaseUrl = (() => {
+  const params = new URLSearchParams(window.location.search);
+  return (params.get("apiBaseUrl") || window.APP_CONFIG?.apiBaseUrl || "").replace(/\/$/, "");
+})();
+
+const state = {
+  shops: [],
+  user: null,
+  selectedFiles: [],
+  analyzedPayload: null,
+};
+
 const fileInput = document.getElementById("fileInput");
+const shopSelect = document.getElementById("shopSelect");
+const memberCodeInput = document.getElementById("memberCodeInput");
+const customerLoginButton = document.getElementById("customerLoginButton");
+const customerLoginCard = document.getElementById("customerLoginCard");
+const customerInfoCard = document.getElementById("customerInfoCard");
+const customerPortal = document.getElementById("customerPortal");
+const customerLogoutButton = document.getElementById("customerLogoutButton");
+const currentShopBadge = document.getElementById("currentShopBadge");
+const currentMemberBadge = document.getElementById("currentMemberBadge");
 const selectButton = document.getElementById("selectButton");
 const fallbackSelectButton = document.getElementById("fallbackSelectButton");
 const uploadButton = document.getElementById("uploadButton");
+const confirmResultButton = document.getElementById("confirmResultButton");
+const submitStatusCard = document.getElementById("submitStatusCard");
 const introCard = document.getElementById("introCard");
 const selectedCard = document.getElementById("selectedCard");
 const selectedPreviewList = document.getElementById("selectedPreviewList");
@@ -11,32 +34,15 @@ const errorCard = document.getElementById("errorCard");
 const resultCard = document.getElementById("resultCard");
 const totalAmount = document.getElementById("totalAmount");
 const detailList = document.getElementById("detailList");
+const statusBanner = document.getElementById("statusBanner");
 const imageDialog = document.getElementById("imageDialog");
 const dialogImage = document.getElementById("dialogImage");
 const closeDialogButton = document.getElementById("closeDialogButton");
-
-let selectedFiles = [];
-const statusBanner = document.getElementById("statusBanner");
 const defaultUploadButtonText = uploadButton.textContent;
-
-function resolveApiBaseUrl() {
-  const params = new URLSearchParams(window.location.search);
-  const fromQuery = params.get("apiBaseUrl");
-  const fromConfig = window.APP_CONFIG?.apiBaseUrl || "";
-  return (fromQuery || fromConfig || "").replace(/\/$/, "");
-}
-
-const apiBaseUrl = resolveApiBaseUrl();
-
-function getMemberCode() {
-  const params = new URLSearchParams(window.location.search);
-  const value = params.get("memberCode");
-  return value && /^\d{8}$/.test(value) ? value : "";
-}
+const defaultConfirmButtonText = confirmResultButton.textContent;
 
 function formatCurrency(value) {
-  const amount = Number(value || 0);
-  return `MOP ${amount.toFixed(2)}`;
+  return `MOP ${Number(value || 0).toFixed(2)}`;
 }
 
 function formatBytes(bytes) {
@@ -46,25 +52,23 @@ function formatBytes(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 }
 
-function resetError() {
-  errorCard.classList.add("hidden");
-  errorCard.textContent = "";
-}
-
 function showError(message) {
   errorCard.textContent = message;
   errorCard.classList.remove("hidden");
 }
 
+function resetError() {
+  errorCard.classList.add("hidden");
+  errorCard.textContent = "";
+}
+
 function showStatus(message, type = "info") {
-  if (!statusBanner) return;
   statusBanner.textContent = message;
   statusBanner.dataset.type = type;
   statusBanner.classList.remove("hidden");
 }
 
 function hideStatus() {
-  if (!statusBanner) return;
   statusBanner.classList.add("hidden");
   statusBanner.textContent = "";
   delete statusBanner.dataset.type;
@@ -72,58 +76,27 @@ function hideStatus() {
 
 async function parseApiResponse(response) {
   const contentType = response.headers.get("content-type") || "";
-
   if (contentType.includes("application/json")) {
     return response.json();
   }
-
   const text = await response.text();
-  const normalizedText = text.trim();
-
-  if (
-    normalizedText.toLowerCase().startsWith("<!doctype") ||
-    normalizedText.toLowerCase().startsWith("<html") ||
-    normalizedText.toLowerCase().includes("the page could not be found") ||
-    normalizedText.toLowerCase().includes("cannot post /api/analyze")
-  ) {
-    throw new Error("目前前端頁面已打開，但後端 API 沒有正常運行。若你是用 GitHub Pages 開啟，圖片上傳功能不會工作，因為它需要 Node.js 後端。");
-  }
-
-  throw new Error(normalizedText || "伺服器回傳了非 JSON 格式內容，請檢查後端是否正常啟動。");
+  throw new Error(text || "伺服器回傳格式錯誤");
 }
 
-async function checkBackendAvailability(showInlineError = false) {
-  const healthUrl = `${apiBaseUrl}/api/health`;
-
-  try {
-    const response = await fetch(healthUrl, {
-      method: "GET",
-      headers: {
-        Accept: "application/json",
-      },
-    });
-
-    const contentType = response.headers.get("content-type") || "";
-    if (!response.ok || !contentType.includes("application/json")) {
-      throw new Error("health-check-failed");
-    }
-
-    hideStatus();
-    return true;
-  } catch {
-    let message = "";
-    if (window.location.hostname.endsWith("github.io")) {
-      message =
-        "你現在開的是 GitHub Pages 靜態頁面，這裡沒有 Node.js 後端，所以無法上傳辨識。請改用 Vercel 網址，或用 `?apiBaseUrl=你的後端網址` 連到真正的後端。";
-    } else {
-      message = "目前後端 API 未連通，請確認 Vercel 部署成功，且環境變數已設定完成。";
-    }
-    showStatus(message, "warning");
-    if (showInlineError) {
-      showError(message);
-    }
-    return false;
+async function apiFetch(path, options = {}) {
+  const response = await fetch(`${apiBaseUrl}${path}`, {
+    credentials: "include",
+    ...options,
+    headers: {
+      ...(options.body && !(options.body instanceof FormData) ? { "Content-Type": "application/json" } : {}),
+      ...(options.headers || {}),
+    },
+  });
+  const payload = await parseApiResponse(response);
+  if (!response.ok) {
+    throw new Error(payload.error || "請求失敗");
   }
+  return payload;
 }
 
 function setUploadingState(isUploading, label = defaultUploadButtonText) {
@@ -132,83 +105,9 @@ function setUploadingState(isUploading, label = defaultUploadButtonText) {
   loadingCard.classList.toggle("hidden", !isUploading);
 }
 
-function openPicker() {
-  fileInput.click();
-}
-
-function resetResults() {
-  resultCard.classList.add("hidden");
-  detailList.innerHTML = "";
-  totalAmount.textContent = formatCurrency(0);
-}
-
-function renderSelectedFiles() {
-  selectedPreviewList.innerHTML = "";
-
-  if (!selectedFiles.length) {
-    selectedCard.classList.add("hidden");
-    introCard.classList.remove("hidden");
-    return;
-  }
-
-  introCard.classList.add("hidden");
-  selectedCard.classList.remove("hidden");
-  selectionCount.textContent = `${selectedFiles.length} 張`;
-
-  selectedFiles.forEach((file, index) => {
-    const item = document.createElement("div");
-    item.className = "selected-item";
-
-    const previewUrl = URL.createObjectURL(file);
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "selected-item-button";
-    button.addEventListener("click", () => {
-      showImageDialog(previewUrl, file.name);
-    });
-
-    const image = document.createElement("img");
-    image.src = previewUrl;
-    image.alt = file.name;
-
-    const badge = document.createElement("div");
-    badge.className = "selected-item-badge";
-    badge.textContent = `交易明細 ${index + 1}`;
-
-    const removeButton = document.createElement("button");
-    removeButton.type = "button";
-    removeButton.className = "selected-item-remove";
-    removeButton.setAttribute("aria-label", `刪除 ${file.name}`);
-    removeButton.textContent = "×";
-    removeButton.addEventListener("click", (event) => {
-      event.stopPropagation();
-      selectedFiles = selectedFiles.filter((_, fileIndex) => fileIndex !== index);
-      fileInput.value = "";
-      resetError();
-      resetResults();
-      renderSelectedFiles();
-    });
-
-    const body = document.createElement("div");
-    body.className = "selected-item-body";
-    body.innerHTML = `
-      <div><strong>${file.name}</strong></div>
-      <div class="field-note">${formatBytes(file.size)}</div>
-    `;
-
-    button.appendChild(image);
-    item.append(button, badge, removeButton, body);
-    selectedPreviewList.appendChild(item);
-  });
-}
-
-function createDetailRow(label, value, extraClass = "") {
-  const row = document.createElement("tr");
-  row.innerHTML = `
-    <th>${label}</th>
-    <td class="${extraClass}">${value ?? "未能辨識"}</td>
-  `;
-  return row;
+function setConfirmState(isSubmitting, label = defaultConfirmButtonText) {
+  confirmResultButton.disabled = isSubmitting || !state.analyzedPayload;
+  confirmResultButton.textContent = label;
 }
 
 function showImageDialog(src, alt) {
@@ -217,18 +116,120 @@ function showImageDialog(src, alt) {
   imageDialog.showModal();
 }
 
+function resetResults() {
+  state.analyzedPayload = null;
+  resultCard.classList.add("hidden");
+  detailList.innerHTML = "";
+  totalAmount.textContent = formatCurrency(0);
+  submitStatusCard.classList.add("hidden");
+  submitStatusCard.textContent = "";
+  setConfirmState(false);
+}
+
+function renderShopOptions() {
+  shopSelect.innerHTML = state.shops
+    .map((shop) => `<option value="${shop.id}">${shop.name}</option>`)
+    .join("");
+
+  const selectedShopId = state.user?.shopId || state.shops[0]?.id || "";
+  if (selectedShopId) {
+    shopSelect.value = selectedShopId;
+  }
+}
+
+function renderCustomerSession() {
+  const isLoggedIn = state.user?.role === "customer";
+  customerLoginCard.classList.toggle("hidden", isLoggedIn);
+  customerInfoCard.classList.toggle("hidden", !isLoggedIn);
+  customerPortal.classList.toggle("hidden", !isLoggedIn);
+
+  if (!isLoggedIn) {
+    currentShopBadge.textContent = "未選擇店舖";
+    currentMemberBadge.textContent = "未登入";
+    return;
+  }
+
+  currentShopBadge.textContent = state.user.shopName || "未選擇店舖";
+  currentMemberBadge.textContent = `會員 ${state.user.memberCode}`;
+  if (state.user.shopId) {
+    shopSelect.value = state.user.shopId;
+  }
+}
+
+function createDetailRow(label, value, extraClass = "") {
+  const row = document.createElement("tr");
+  row.innerHTML = `<th>${label}</th><td class="${extraClass}">${value ?? "未能辨識"}</td>`;
+  return row;
+}
+
+function renderSelectedFiles() {
+  selectedPreviewList.innerHTML = "";
+
+  if (!state.selectedFiles.length) {
+    selectedCard.classList.add("hidden");
+    introCard.classList.remove("hidden");
+    return;
+  }
+
+  introCard.classList.add("hidden");
+  selectedCard.classList.remove("hidden");
+  selectionCount.textContent = `${state.selectedFiles.length} 張`;
+
+  state.selectedFiles.forEach((file, index) => {
+    const item = document.createElement("div");
+    item.className = "selected-item";
+
+    const previewUrl = URL.createObjectURL(file);
+    const previewButton = document.createElement("button");
+    previewButton.type = "button";
+    previewButton.className = "selected-item-button";
+    previewButton.addEventListener("click", () => showImageDialog(previewUrl, file.name));
+
+    const image = document.createElement("img");
+    image.src = previewUrl;
+    image.alt = file.name;
+    previewButton.appendChild(image);
+
+    const badge = document.createElement("div");
+    badge.className = "selected-item-badge";
+    badge.textContent = `交易明細 ${index + 1}`;
+
+    const removeButton = document.createElement("button");
+    removeButton.type = "button";
+    removeButton.className = "selected-item-remove";
+    removeButton.textContent = "×";
+    removeButton.setAttribute("aria-label", `刪除 ${file.name}`);
+    removeButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      state.selectedFiles = state.selectedFiles.filter((_, fileIndex) => fileIndex !== index);
+      fileInput.value = "";
+      resetResults();
+      renderSelectedFiles();
+    });
+
+    const body = document.createElement("div");
+    body.className = "selected-item-body";
+    body.innerHTML = `<div><strong>${file.name}</strong></div><div class="field-note">${formatBytes(file.size)}</div>`;
+
+    item.append(previewButton, badge, removeButton, body);
+    selectedPreviewList.appendChild(item);
+  });
+}
+
 function renderResults(payload) {
+  state.analyzedPayload = payload;
   resultCard.classList.remove("hidden");
+  submitStatusCard.classList.add("hidden");
   totalAmount.textContent = formatCurrency(payload.totalAmount);
   detailList.innerHTML = "";
+  setConfirmState(false);
 
   payload.items.forEach((item, index) => {
-    const detailCard = document.createElement("section");
-    detailCard.className = "card detail-card";
+    const card = document.createElement("section");
+    card.className = "card detail-card compact-card";
 
     const statusValue = item.extracted.orderStatus || "未能辨識";
     const statusClass = statusValue === "交易成功" ? "status-success" : "status-unknown";
-
     const table = document.createElement("table");
     const tbody = document.createElement("tbody");
     tbody.append(
@@ -241,50 +242,109 @@ function renderResults(payload) {
     );
     table.appendChild(tbody);
 
-    const confidenceText =
-      typeof item.extracted.confidence === "number"
-        ? `辨識信心：${Math.round(item.extracted.confidence * 100)}%`
-        : "辨識信心：未提供";
-    const amountReasonText = item.extracted.amountReason
-      ? `金額判定：${item.extracted.amountReason}`
-      : "金額判定：取畫面中最大的候選金額";
-
-    detailCard.innerHTML = `
+    card.innerHTML = `
       <div class="section-header">
         <h3>交易明細 ${index + 1}</h3>
         <span class="pill">${formatCurrency(item.extracted.amount)}</span>
       </div>
-      <p class="detail-note">${confidenceText}</p>
-      <p class="detail-note">${amountReasonText}</p>
+      <p class="detail-note">辨識信心：${typeof item.extracted.confidence === "number" ? `${Math.round(item.extracted.confidence * 100)}%` : "未提供"}</p>
+      <p class="detail-note">金額判定：${item.extracted.amountReason || "取候選金額中的最大值"}</p>
     `;
-    detailCard.appendChild(table);
-
-    const compressionNote = document.createElement("p");
-    compressionNote.className = "compression-note";
-    compressionNote.textContent = `壓縮後儲存：${formatBytes(item.originalSize)} → ${formatBytes(item.compressedSize)}`;
-    detailCard.appendChild(compressionNote);
-
-    detailList.appendChild(detailCard);
+    card.appendChild(table);
+    detailList.appendChild(card);
   });
 }
 
-async function uploadFiles() {
+async function checkBackendAvailability(showInlineError = false) {
+  try {
+    await apiFetch("/api/health");
+    hideStatus();
+    return true;
+  } catch {
+    const message = "目前後端 API 未連通，請確認 Vercel 部署成功，且環境變數已設定完成。";
+    showStatus(message, "warning");
+    if (showInlineError) showError(message);
+    return false;
+  }
+}
+
+async function loadShops() {
+  const payload = await apiFetch("/api/shops");
+  state.shops = payload.shops || [];
+  renderShopOptions();
+}
+
+async function loadSession() {
+  const payload = await apiFetch("/api/auth/me");
+  state.user = payload.user;
+  renderCustomerSession();
+}
+
+async function loginCustomer(memberCode = memberCodeInput.value.trim(), silent = false) {
   resetError();
 
-  if (!selectedFiles.length) {
+  if (!/^\d{8}$/.test(memberCode)) {
+    showError("請輸入 8 位會員編號");
+    return;
+  }
+  if (!shopSelect.value) {
+    showError("請先選擇店舖");
+    return;
+  }
+
+  customerLoginButton.disabled = true;
+  try {
+    const payload = await apiFetch("/api/auth/customer-login", {
+      method: "POST",
+      body: JSON.stringify({
+        memberCode,
+        shopId: shopSelect.value,
+      }),
+    });
+    state.user = payload.user;
+    renderCustomerSession();
+    if (!silent) {
+      showStatus("登入成功，請選擇付款截圖。", "info");
+      setTimeout(() => openPicker(), 250);
+    }
+  } catch (error) {
+    showError(error instanceof Error ? error.message : "登入失敗");
+  } finally {
+    customerLoginButton.disabled = false;
+  }
+}
+
+async function logoutCustomer() {
+  await apiFetch("/api/auth/logout", { method: "POST" });
+  state.user = null;
+  state.selectedFiles = [];
+  memberCodeInput.value = "";
+  resetResults();
+  renderSelectedFiles();
+  renderCustomerSession();
+  showStatus("已登出", "info");
+}
+
+function openPicker() {
+  if (state.user?.role !== "customer") {
+    showError("請先登入客戶帳號");
+    return;
+  }
+  fileInput.click();
+}
+
+async function analyzeFiles() {
+  resetError();
+  submitStatusCard.classList.add("hidden");
+
+  if (!state.selectedFiles.length) {
     showError("請先選擇至少一張圖片。");
     return;
   }
 
-  if (selectedFiles.length > 10) {
-    showError("一次最多只可上傳 10 張圖片。");
-    return;
-  }
-
   setUploadingState(true, "檢查服務中...");
-
-  const backendReady = await checkBackendAvailability(true);
-  if (!backendReady) {
+  const ready = await checkBackendAvailability(true);
+  if (!ready) {
     setUploadingState(false);
     return;
   }
@@ -293,23 +353,18 @@ async function uploadFiles() {
 
   try {
     const formData = new FormData();
-    selectedFiles.forEach((file) => formData.append("images", file));
-
-    const memberCode = getMemberCode();
-    if (memberCode) {
-      formData.append("memberCode", memberCode);
+    state.selectedFiles.forEach((file) => formData.append("images", file));
+    if (state.user?.memberCode) {
+      formData.append("memberCode", state.user.memberCode);
     }
 
     const response = await fetch(`${apiBaseUrl}/api/analyze`, {
       method: "POST",
+      credentials: "include",
       body: formData,
     });
-
     const payload = await parseApiResponse(response);
-    if (!response.ok) {
-      throw new Error(payload.error || "上傳失敗");
-    }
-
+    if (!response.ok) throw new Error(payload.error || "辨識失敗");
     renderResults(payload);
   } catch (error) {
     showError(error instanceof Error ? error.message : "系統錯誤，請稍後再試。");
@@ -318,23 +373,60 @@ async function uploadFiles() {
   }
 }
 
+async function submitForApproval() {
+  resetError();
+  if (!state.analyzedPayload || !state.selectedFiles.length) {
+    showError("請先完成辨識再送審");
+    return;
+  }
+
+  setConfirmState(true, "送審中...");
+  try {
+    const formData = new FormData();
+    state.selectedFiles.forEach((file) => formData.append("images", file));
+    formData.append("analyzedData", JSON.stringify(state.analyzedPayload));
+
+    const response = await fetch(`${apiBaseUrl}/api/customer/submit`, {
+      method: "POST",
+      credentials: "include",
+      body: formData,
+    });
+    const payload = await parseApiResponse(response);
+    if (!response.ok) throw new Error(payload.error || "送審失敗");
+
+    submitStatusCard.textContent = `已成功送交店主審核。交易編號：${payload.transactionId}`;
+    submitStatusCard.classList.remove("hidden");
+    setConfirmState(true, "已送審");
+  } catch (error) {
+    setConfirmState(false);
+    showError(error instanceof Error ? error.message : "送審失敗");
+  }
+}
+
+shopSelect.addEventListener("change", async () => {
+  if (state.user?.role === "customer" && state.user.memberCode) {
+    await loginCustomer(state.user.memberCode, true);
+    showStatus(`已切換至 ${state.user?.shopName || "新店舖"}`, "info");
+  }
+});
+
+customerLoginButton.addEventListener("click", () => loginCustomer());
+customerLogoutButton.addEventListener("click", logoutCustomer);
 selectButton.addEventListener("click", openPicker);
 fallbackSelectButton.addEventListener("click", openPicker);
-uploadButton.addEventListener("click", uploadFiles);
+uploadButton.addEventListener("click", analyzeFiles);
+confirmResultButton.addEventListener("click", submitForApproval);
 
 fileInput.addEventListener("change", (event) => {
   resetError();
-
   const files = Array.from(event.target.files || []);
   if (!files.length) return;
-
   if (files.length > 10) {
     showError("一次最多只可選擇 10 張圖片。");
     fileInput.value = "";
     return;
   }
-
-  selectedFiles = files;
+  state.selectedFiles = files;
   resetResults();
   renderSelectedFiles();
 });
@@ -348,14 +440,13 @@ imageDialog.addEventListener("click", (event) => {
     rect.left <= event.clientX &&
     event.clientX <= rect.left + rect.width;
 
-  if (!clickedInside) {
-    imageDialog.close();
-  }
+  if (!clickedInside) imageDialog.close();
 });
 
-window.addEventListener("load", () => {
-  checkBackendAvailability();
-  setTimeout(() => {
-    openPicker();
-  }, 350);
+window.addEventListener("load", async () => {
+  try {
+    await Promise.all([loadShops(), loadSession(), checkBackendAvailability()]);
+  } catch (error) {
+    showError(error instanceof Error ? error.message : "初始化失敗");
+  }
 });

@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>店主管理後台</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body class="owner-page">
+    <div class="page">
+      <header class="hero hero-compact">
+        <div>
+          <div class="eyebrow">Top Up Automation POC</div>
+          <h1>店主管理後台</h1>
+          <p class="subtitle">查看待審核交易、核准充值紀錄，並檢視期間統計。</p>
+        </div>
+        <a class="secondary-button nav-link" href="/">客戶入口</a>
+      </header>
+
+      <section id="ownerStatusBanner" class="card status-banner hidden"></section>
+      <section id="ownerErrorCard" class="card error-card hidden"></section>
+
+      <section id="ownerLoginCard" class="card login-card">
+        <div class="section-header">
+          <h2>店主登入</h2>
+          <span class="pill">POC</span>
+        </div>
+        <div class="login-grid">
+          <input id="ownerLoginInput" class="text-input" type="text" placeholder="店主帳號" />
+          <input id="ownerPasswordInput" class="text-input" type="password" placeholder="密碼" />
+          <button id="ownerLoginButton" class="primary-button" type="button">登入後台</button>
+        </div>
+      </section>
+
+      <main id="ownerApp" class="hidden">
+        <section class="card">
+          <div class="session-bar">
+            <div class="session-info">
+              <span id="ownerShopBadge" class="pill">未登入</span>
+              <span id="ownerLoginBadge" class="pill subtle-pill">-</span>
+            </div>
+            <button id="ownerLogoutButton" class="secondary-button" type="button">登出</button>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="filter-bar">
+            <div class="date-filters">
+              <label>
+                <span>開始日期</span>
+                <input id="dateFromInput" class="text-input" type="date" />
+              </label>
+              <label>
+                <span>結束日期</span>
+                <input id="dateToInput" class="text-input" type="date" />
+              </label>
+            </div>
+            <button id="refreshDashboardButton" class="secondary-button" type="button">重新整理</button>
+          </div>
+        </section>
+
+        <section id="dashboardCards" class="dashboard-grid"></section>
+
+        <section class="card">
+          <div class="tab-bar">
+            <button id="pendingTabButton" class="tab-button active" type="button">待審核</button>
+            <button id="historyTabButton" class="tab-button" type="button">歷史紀錄</button>
+          </div>
+          <div id="transactionList" class="transaction-list"></div>
+        </section>
+      </main>
+    </div>
+
+    <script>
+      window.APP_CONFIG = {
+        apiBaseUrl: "https://top-up-automation.vercel.app",
+      };
+    </script>
+    <script src="/owner.js" type="module"></script>
+  </body>
+</html>

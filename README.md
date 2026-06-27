@@ -54,6 +54,27 @@ This project is not a pure static website.
 - For production, deploy the backend to a server platform such as Railway, Render, Fly.io, ECS, or another Node-capable environment
 - If frontend and backend are hosted separately, set `window.APP_CONFIG.apiBaseUrl` in `public/index.html`
 
+## Fastest working deployment
+
+The quickest path is to deploy the whole repo to Render as a web service.
+
+1. Create a new Render account and connect GitHub
+2. Select this repository
+3. Render will detect `render.yaml`
+4. Set these environment variables in Render:
+   - `AI_BASE_URL`
+   - `AI_API_KEY`
+   - `AI_MODEL`
+5. Deploy
+
+After deployment, open the Render URL directly. That URL will host both the frontend and backend together.
+
+If you still want to keep GitHub Pages for the frontend, open it like this:
+
+```text
+https://your-account.github.io/your-repo/?apiBaseUrl=https://your-render-service.onrender.com
+```
+
 ## Notes
 
 - The 8-digit member code is not enforced yet, but the frontend already accepts `?memberCode=12345678` for future integration.

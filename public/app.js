@@ -17,7 +17,16 @@ const dialogImage = document.getElementById("dialogImage");
 const closeDialogButton = document.getElementById("closeDialogButton");
 
 let selectedFiles = [];
-const apiBaseUrl = (window.APP_CONFIG?.apiBaseUrl || "").replace(/\/$/, "");
+const statusBanner = document.getElementById("statusBanner");
+
+function resolveApiBaseUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const fromQuery = params.get("apiBaseUrl");
+  const fromConfig = window.APP_CONFIG?.apiBaseUrl || "";
+  return (fromQuery || fromConfig || "").replace(/\/$/, "");
+}
+
+const apiBaseUrl = resolveApiBaseUrl();
 
 function getMemberCode() {
   const params = new URLSearchParams(window.location.search);
@@ -47,6 +56,20 @@ function showError(message) {
   errorCard.classList.remove("hidden");
 }
 
+function showStatus(message, type = "info") {
+  if (!statusBanner) return;
+  statusBanner.textContent = message;
+  statusBanner.dataset.type = type;
+  statusBanner.classList.remove("hidden");
+}
+
+function hideStatus() {
+  if (!statusBanner) return;
+  statusBanner.classList.add("hidden");
+  statusBanner.textContent = "";
+  delete statusBanner.dataset.type;
+}
+
 async function parseApiResponse(response) {
   const contentType = response.headers.get("content-type") || "";
 
@@ -67,6 +90,37 @@ async function parseApiResponse(response) {
   }
 
   throw new Error(normalizedText || "伺服器回傳了非 JSON 格式內容，請檢查後端是否正常啟動。");
+}
+
+async function checkBackendAvailability() {
+  const healthUrl = `${apiBaseUrl}/api/health`;
+
+  try {
+    const response = await fetch(healthUrl, {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+      },
+    });
+
+    const contentType = response.headers.get("content-type") || "";
+    if (!response.ok || !contentType.includes("application/json")) {
+      throw new Error("health-check-failed");
+    }
+
+    hideStatus();
+    return true;
+  } catch {
+    if (window.location.hostname.endsWith("github.io")) {
+      showStatus(
+        "你現在開的是 GitHub Pages 靜態頁面，這裡沒有 Node.js 後端，所以無法上傳辨識。請把後端部署到 Render / Railway，然後用 `?apiBaseUrl=你的後端網址` 開啟此頁。",
+        "warning"
+      );
+    } else {
+      showStatus("目前後端 API 未連通，請確認 Node.js 服務已啟動，或設定正確的 `apiBaseUrl`。", "warning");
+    }
+    return false;
+  }
 }
 
 function openPicker() {
@@ -206,6 +260,11 @@ async function uploadFiles() {
     return;
   }
 
+  const backendReady = await checkBackendAvailability();
+  if (!backendReady) {
+    return;
+  }
+
   loadingCard.classList.remove("hidden");
   uploadButton.disabled = true;
 
@@ -272,6 +331,7 @@ imageDialog.addEventListener("click", (event) => {
 });
 
 window.addEventListener("load", () => {
+  checkBackendAvailability();
   setTimeout(() => {
     openPicker();
   }, 350);

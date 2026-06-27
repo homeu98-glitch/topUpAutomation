@@ -100,6 +100,19 @@ td {
   text-align: center;
 }
 
+.status-banner {
+  text-align: left;
+  border: 1px solid #f6c26b;
+  background: #fff8e6;
+  color: #8a5200;
+}
+
+.status-banner[data-type="info"] {
+  border-color: #c6dafc;
+  background: #eef4ff;
+  color: #174ea6;
+}
+
 .upload-card h2,
 .loading-card h2 {
   margin-bottom: 10px;

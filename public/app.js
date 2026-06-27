@@ -18,6 +18,7 @@ const closeDialogButton = document.getElementById("closeDialogButton");
 
 let selectedFiles = [];
 const statusBanner = document.getElementById("statusBanner");
+const defaultUploadButtonText = uploadButton.textContent;
 
 function resolveApiBaseUrl() {
   const params = new URLSearchParams(window.location.search);
@@ -92,7 +93,7 @@ async function parseApiResponse(response) {
   throw new Error(normalizedText || "伺服器回傳了非 JSON 格式內容，請檢查後端是否正常啟動。");
 }
 
-async function checkBackendAvailability() {
+async function checkBackendAvailability(showInlineError = false) {
   const healthUrl = `${apiBaseUrl}/api/health`;
 
   try {
@@ -111,16 +112,25 @@ async function checkBackendAvailability() {
     hideStatus();
     return true;
   } catch {
+    let message = "";
     if (window.location.hostname.endsWith("github.io")) {
-      showStatus(
-        "你現在開的是 GitHub Pages 靜態頁面，這裡沒有 Node.js 後端，所以無法上傳辨識。請把後端部署到 Vercel / Render / Railway，然後用 `?apiBaseUrl=你的後端網址` 開啟此頁。",
-        "warning"
-      );
+      message =
+        "你現在開的是 GitHub Pages 靜態頁面，這裡沒有 Node.js 後端，所以無法上傳辨識。請改用 Vercel 網址，或用 `?apiBaseUrl=你的後端網址` 連到真正的後端。";
     } else {
-      showStatus("目前後端 API 未連通，請確認 Node.js 服務已啟動，或設定正確的 `apiBaseUrl`。", "warning");
+      message = "目前後端 API 未連通，請確認 Vercel 部署成功，且環境變數已設定完成。";
+    }
+    showStatus(message, "warning");
+    if (showInlineError) {
+      showError(message);
     }
     return false;
   }
+}
+
+function setUploadingState(isUploading, label = defaultUploadButtonText) {
+  uploadButton.disabled = isUploading;
+  uploadButton.textContent = label;
+  loadingCard.classList.toggle("hidden", !isUploading);
 }
 
 function openPicker() {
@@ -260,13 +270,15 @@ async function uploadFiles() {
     return;
   }
 
-  const backendReady = await checkBackendAvailability();
+  setUploadingState(true, "檢查服務中...");
+
+  const backendReady = await checkBackendAvailability(true);
   if (!backendReady) {
+    setUploadingState(false);
     return;
   }
 
-  loadingCard.classList.remove("hidden");
-  uploadButton.disabled = true;
+  setUploadingState(true, "辨識中...");
 
   try {
     const formData = new FormData();
@@ -291,8 +303,7 @@ async function uploadFiles() {
   } catch (error) {
     showError(error instanceof Error ? error.message : "系統錯誤，請稍後再試。");
   } finally {
-    loadingCard.classList.add("hidden");
-    uploadButton.disabled = false;
+    setUploadingState(false);
   }
 }
 

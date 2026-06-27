@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
 import express from "express";
 import multer from "multer";
@@ -19,6 +20,18 @@ const AI_BASE_URL = (process.env.AI_BASE_URL || "").replace(/\/$/, "");
 const AI_API_KEY = process.env.AI_API_KEY || "";
 const AI_MODEL = process.env.AI_MODEL || "qwen-vl-plus";
 const STORAGE_DIR = path.join(__dirname, "storage");
+const SUPABASE_URL = process.env.SUPABASE_URL || "";
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+const SUPABASE_STORAGE_BUCKET = process.env.SUPABASE_STORAGE_BUCKET || "topup-images";
+const HAS_SUPABASE_STORAGE = Boolean(SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY && SUPABASE_STORAGE_BUCKET);
+const supabase = HAS_SUPABASE_STORAGE
+  ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    })
+  : null;
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -76,7 +89,6 @@ JSON 格式固定如下：
 
 app.use(express.json({ limit: "2mb" }));
 app.use(express.static(path.join(__dirname, "public")));
-app.use("/storage", express.static(STORAGE_DIR));
 
 function normalizeAIText(content) {
   if (!content) return "{}";
@@ -126,18 +138,19 @@ function toAmountNumber(value) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function isRunningDirectly() {
+  return process.argv[1] && path.resolve(process.argv[1]) === __filename;
+}
+
 async function ensureStorageDir() {
+  if (HAS_SUPABASE_STORAGE) return;
   await fs.mkdir(STORAGE_DIR, { recursive: true });
 }
 
-async function compressAndSave(file) {
+async function compressImage(file) {
   const dayFolder = new Date().toISOString().slice(0, 10);
-  const targetDir = path.join(STORAGE_DIR, dayFolder);
-  await fs.mkdir(targetDir, { recursive: true });
-
   const id = crypto.randomUUID();
   const outputName = `${id}.jpg`;
-  const outputPath = path.join(targetDir, outputName);
 
   const metadata = await sharp(file.buffer).metadata();
   const width = metadata.width && metadata.width > 1600 ? 1600 : metadata.width;
@@ -148,13 +161,54 @@ async function compressAndSave(file) {
     .jpeg({ quality: 72, mozjpeg: true })
     .toBuffer();
 
+  return {
+    dayFolder,
+    outputName,
+    compressedBuffer,
+    originalSize: file.size,
+    compressedSize: compressedBuffer.length,
+  };
+}
+
+async function saveCompressedImage(file) {
+  const { dayFolder, outputName, compressedBuffer, originalSize, compressedSize } = await compressImage(file);
+
+  if (HAS_SUPABASE_STORAGE && supabase) {
+    const objectPath = `${dayFolder}/${outputName}`;
+    const { error } = await supabase.storage.from(SUPABASE_STORAGE_BUCKET).upload(objectPath, compressedBuffer, {
+      contentType: "image/jpeg",
+      cacheControl: "1728000",
+      upsert: false,
+    });
+
+    if (error) {
+      throw new Error(`Supabase 儲存失敗：${error.message}`);
+    }
+
+    const { data } = supabase.storage.from(SUPABASE_STORAGE_BUCKET).getPublicUrl(objectPath);
+
+    return {
+      compressedBuffer,
+      storageUrl: data.publicUrl,
+      originalSize,
+      compressedSize,
+      storageProvider: "supabase",
+      objectPath,
+    };
+  }
+
+  const targetDir = path.join(STORAGE_DIR, dayFolder);
+  const outputPath = path.join(targetDir, outputName);
+  await fs.mkdir(targetDir, { recursive: true });
   await fs.writeFile(outputPath, compressedBuffer);
 
   return {
     compressedBuffer,
     storageUrl: `/storage/${dayFolder}/${outputName}`,
-    originalSize: file.size,
-    compressedSize: compressedBuffer.length,
+    originalSize,
+    compressedSize,
+    storageProvider: "local",
+    objectPath: `${dayFolder}/${outputName}`,
   };
 }
 
@@ -209,7 +263,11 @@ async function analyzeImage(base64DataUrl) {
 
 app.get("/api/health", async (_req, res) => {
   await ensureStorageDir();
-  res.json({ ok: true });
+  res.json({
+    ok: true,
+    storageProvider: HAS_SUPABASE_STORAGE ? "supabase" : "local",
+    hasAiConfig: Boolean(AI_BASE_URL && AI_API_KEY),
+  });
 });
 
 app.post("/api/analyze", upload.array("images", 10), async (req, res) => {
@@ -230,7 +288,8 @@ app.post("/api/analyze", upload.array("images", 10), async (req, res) => {
 
     const items = await Promise.all(
       files.map(async (file, index) => {
-        const { compressedBuffer, storageUrl, originalSize, compressedSize } = await compressAndSave(file);
+        const { compressedBuffer, storageUrl, originalSize, compressedSize, storageProvider, objectPath } =
+          await saveCompressedImage(file);
         const base64DataUrl = `data:image/jpeg;base64,${compressedBuffer.toString("base64")}`;
         const extracted = await analyzeImage(base64DataUrl);
 
@@ -241,6 +300,8 @@ app.post("/api/analyze", upload.array("images", 10), async (req, res) => {
           previewUrl: storageUrl,
           originalSize,
           compressedSize,
+          storageProvider,
+          storagePath: objectPath,
           compressionRatio: originalSize ? Number((compressedSize / originalSize).toFixed(4)) : 1,
           extracted: {
             merchantName: extracted.merchantName ?? null,
@@ -262,6 +323,7 @@ app.post("/api/analyze", upload.array("images", 10), async (req, res) => {
       memberCode: memberCode || null,
       count: items.length,
       totalAmount: totalAmount.toFixed(2),
+      storageProvider: HAS_SUPABASE_STORAGE ? "supabase" : "local",
       items,
     });
   } catch (error) {
@@ -271,7 +333,15 @@ app.post("/api/analyze", upload.array("images", 10), async (req, res) => {
   }
 });
 
-app.listen(PORT, async () => {
-  await ensureStorageDir();
-  console.log(`Top-up POC running at http://localhost:${PORT}`);
-});
+if (!HAS_SUPABASE_STORAGE) {
+  app.use("/storage", express.static(STORAGE_DIR));
+}
+
+if (isRunningDirectly()) {
+  app.listen(PORT, async () => {
+    await ensureStorageDir();
+    console.log(`Top-up POC running at http://localhost:${PORT}`);
+  });
+}
+
+export default app;

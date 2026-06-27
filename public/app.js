@@ -113,7 +113,7 @@ async function checkBackendAvailability() {
   } catch {
     if (window.location.hostname.endsWith("github.io")) {
       showStatus(
-        "你現在開的是 GitHub Pages 靜態頁面，這裡沒有 Node.js 後端，所以無法上傳辨識。請把後端部署到 Render / Railway，然後用 `?apiBaseUrl=你的後端網址` 開啟此頁。",
+        "你現在開的是 GitHub Pages 靜態頁面，這裡沒有 Node.js 後端，所以無法上傳辨識。請把後端部署到 Vercel / Render / Railway，然後用 `?apiBaseUrl=你的後端網址` 開啟此頁。",
         "warning"
       );
     } else {

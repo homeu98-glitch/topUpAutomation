@@ -33,6 +33,9 @@ Copy `.env.example` to `.env` and set:
 - `AI_BASE_URL`
 - `AI_API_KEY`
 - `AI_MODEL`
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `SUPABASE_STORAGE_BUCKET`
 
 The current POC is configured for an OpenAI-compatible vision endpoint.
 
@@ -51,12 +54,47 @@ This project is not a pure static website.
 
 - The upload and AI recognition flow requires the Node.js backend in `server.js`
 - If you open only the frontend on a static host such as GitHub Pages, the `POST /api/analyze` request will fail because there is no backend there
-- For production, deploy the backend to a server platform such as Railway, Render, Fly.io, ECS, or another Node-capable environment
+- For production, deploy the backend to a server platform such as Vercel, Railway, Render, Fly.io, ECS, or another Node-capable environment
 - If frontend and backend are hosted separately, set `window.APP_CONFIG.apiBaseUrl` in `public/index.html`
+
+## Vercel + Supabase
+
+This repo now supports Vercel API routing and Supabase Storage.
+
+### Vercel
+
+- `vercel.json` rewrites `/api/*` to the Node handler in `api/index.js`
+- `public/` is served as static frontend content
+- `server.js` is reused by both local development and Vercel
+
+### Supabase
+
+- If `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `SUPABASE_STORAGE_BUCKET` are set, compressed images are uploaded to Supabase Storage
+- If those values are missing, the app falls back to local `storage/` for local development
+- For Vercel, use Supabase Storage because Vercel local filesystem is not suitable for persistent image storage
+
+Create a public storage bucket such as `topup-images` in Supabase before deploying.
 
 ## Fastest working deployment
 
-The quickest path is to deploy the whole repo to Render as a web service.
+The quickest path with your current setup is to deploy the whole repo to Vercel and store images in Supabase Storage.
+
+1. Create a public Supabase Storage bucket, for example `topup-images`
+2. In Vercel, import this repository
+3. Add these environment variables in Vercel:
+   - `AI_BASE_URL`
+   - `AI_API_KEY`
+   - `AI_MODEL`
+   - `SUPABASE_URL`
+   - `SUPABASE_SERVICE_ROLE_KEY`
+   - `SUPABASE_STORAGE_BUCKET`
+4. Deploy
+
+After deployment, open the Vercel URL directly. That URL will host both the frontend and backend together.
+
+## Alternative Render deployment
+
+If you prefer Render instead of Vercel:
 
 1. Create a new Render account and connect GitHub
 2. Select this repository
@@ -65,6 +103,9 @@ The quickest path is to deploy the whole repo to Render as a web service.
    - `AI_BASE_URL`
    - `AI_API_KEY`
    - `AI_MODEL`
+   - `SUPABASE_URL`
+   - `SUPABASE_SERVICE_ROLE_KEY`
+   - `SUPABASE_STORAGE_BUCKET`
 5. Deploy
 
 After deployment, open the Render URL directly. That URL will host both the frontend and backend together.

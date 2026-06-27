@@ -10,7 +10,6 @@ const loadingCard = document.getElementById("loadingCard");
 const errorCard = document.getElementById("errorCard");
 const resultCard = document.getElementById("resultCard");
 const totalAmount = document.getElementById("totalAmount");
-const sliderTrack = document.getElementById("sliderTrack");
 const detailList = document.getElementById("detailList");
 const imageDialog = document.getElementById("imageDialog");
 const dialogImage = document.getElementById("dialogImage");
@@ -154,8 +153,16 @@ function renderSelectedFiles() {
     const item = document.createElement("div");
     item.className = "selected-item";
 
+    const previewUrl = URL.createObjectURL(file);
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "selected-item-button";
+    button.addEventListener("click", () => {
+      showImageDialog(previewUrl, file.name);
+    });
+
     const image = document.createElement("img");
-    image.src = URL.createObjectURL(file);
+    image.src = previewUrl;
     image.alt = file.name;
 
     const body = document.createElement("div");
@@ -165,7 +172,8 @@ function renderSelectedFiles() {
       <div class="field-note">${formatBytes(file.size)}</div>
     `;
 
-    item.append(image, body);
+    button.appendChild(image);
+    item.append(button, body);
     selectedPreviewList.appendChild(item);
   });
 }
@@ -188,34 +196,9 @@ function showImageDialog(src, alt) {
 function renderResults(payload) {
   resultCard.classList.remove("hidden");
   totalAmount.textContent = formatCurrency(payload.totalAmount);
-  sliderTrack.innerHTML = "";
   detailList.innerHTML = "";
 
   payload.items.forEach((item, index) => {
-    const previewCard = document.createElement("div");
-    previewCard.className = "slider-item";
-
-    const button = document.createElement("button");
-    button.type = "button";
-    button.addEventListener("click", () => {
-      showImageDialog(item.previewUrl, `交易截圖 ${index + 1}`);
-    });
-
-    const img = document.createElement("img");
-    img.src = item.previewUrl;
-    img.alt = `交易截圖 ${index + 1}`;
-
-    const body = document.createElement("div");
-    body.className = "slider-item-body";
-    body.innerHTML = `
-      <div><strong>第 ${index + 1} 張</strong></div>
-      <div class="field-note">${item.fileName}</div>
-    `;
-
-    button.appendChild(img);
-    previewCard.append(button, body);
-    sliderTrack.appendChild(previewCard);
-
     const detailCard = document.createElement("section");
     detailCard.className = "card detail-card";
 
@@ -238,6 +221,9 @@ function renderResults(payload) {
       typeof item.extracted.confidence === "number"
         ? `辨識信心：${Math.round(item.extracted.confidence * 100)}%`
         : "辨識信心：未提供";
+    const amountReasonText = item.extracted.amountReason
+      ? `金額判定：${item.extracted.amountReason}`
+      : "金額判定：取畫面中最大的候選金額";
 
     detailCard.innerHTML = `
       <div class="section-header">
@@ -245,6 +231,7 @@ function renderResults(payload) {
         <span class="pill">${formatCurrency(item.extracted.amount)}</span>
       </div>
       <p class="detail-note">${confidenceText}</p>
+      <p class="detail-note">${amountReasonText}</p>
     `;
     detailCard.appendChild(table);
 

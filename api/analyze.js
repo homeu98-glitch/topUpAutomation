@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 
 import formidable from "formidable";
 
-import { normalizeMemberCode, processUploadedFiles } from "../lib/topup-service.js";
+import { applyCors, normalizeMemberCode, processUploadedFiles } from "../lib/topup-service.js";
 
 export const config = {
   api: {
@@ -36,6 +36,12 @@ function normalizeArray(value) {
 }
 
 export default async function handler(req, res) {
+  applyCors(req, res);
+
+  if (req.method === "OPTIONS") {
+    return res.status(204).end();
+  }
+
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
     return res.status(405).json({ error: "Method not allowed" });

@@ -1,3 +1,5 @@
+import { applyCors } from "../lib/topup-service.js";
+
 export const config = {
   api: {
     bodyParser: false,
@@ -5,6 +7,12 @@ export const config = {
 };
 
 export default async function handler(req, res) {
+  applyCors(req, res);
+
+  if (req.method === "OPTIONS") {
+    return res.status(204).end();
+  }
+
   const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
   const pathname = url.pathname.replace(/\/+$/, "");
 

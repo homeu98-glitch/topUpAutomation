@@ -6,7 +6,7 @@
     <title>交易截圖上傳 POC</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
-  <body class="customer-page">
+  <body class="customer-page auth-booting">
     <div class="page compact-page">
       <header class="hero hero-compact">
         <div>
@@ -17,6 +17,14 @@
       </header>
 
       <section id="statusBanner" class="card status-banner hidden"></section>
+
+      <section id="authBootCard" class="card loading-card">
+        <div class="spinner"></div>
+        <div>
+          <h2>登入檢查中</h2>
+          <p>系統正在確認主系統登入狀態，請稍候。</p>
+        </div>
+      </section>
 
       <section id="customerLoginCard" class="card login-card">
         <div class="section-header">

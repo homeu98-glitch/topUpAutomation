@@ -27,6 +27,16 @@ body.customer-page {
   font-size: 15px;
 }
 
+body.auth-booting #customerLoginCard,
+body.auth-booting #customerInfoCard,
+body.auth-booting #customerPortal {
+  display: none !important;
+}
+
+body:not(.auth-booting) #authBootCard {
+  display: none !important;
+}
+
 button,
 input,
 table {

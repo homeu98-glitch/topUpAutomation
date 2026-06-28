@@ -9,6 +9,7 @@ const state = {
   selectedFiles: [],
   analyzedPayload: null,
   authMode: "customer",
+  authBooting: true,
 };
 
 const fileInput = document.getElementById("fileInput");
@@ -26,6 +27,7 @@ const ownerLoginPane = document.getElementById("ownerLoginPane");
 const customerLoginCard = document.getElementById("customerLoginCard");
 const customerInfoCard = document.getElementById("customerInfoCard");
 const customerPortal = document.getElementById("customerPortal");
+const authBootCard = document.getElementById("authBootCard");
 const customerLogoutButton = document.getElementById("customerLogoutButton");
 const currentMemberBadge = document.getElementById("currentMemberBadge");
 const selectButton = document.getElementById("selectButton");
@@ -153,8 +155,20 @@ function renderAuthMode() {
   ownerLoginPane.classList.toggle("hidden", isCustomer);
 }
 
+function setAuthBooting(isBooting) {
+  state.authBooting = isBooting;
+  document.body.classList.toggle("auth-booting", isBooting);
+  authBootCard.classList.toggle("hidden", !isBooting);
+}
+
 function renderCustomerSession() {
   const isLoggedIn = state.user?.role === "customer";
+  if (state.authBooting) {
+    customerLoginCard.classList.add("hidden");
+    customerInfoCard.classList.add("hidden");
+    customerPortal.classList.add("hidden");
+    return;
+  }
   customerLoginCard.classList.toggle("hidden", isLoggedIn);
   customerInfoCard.classList.toggle("hidden", !isLoggedIn);
   customerPortal.classList.toggle("hidden", !isLoggedIn);
@@ -337,6 +351,9 @@ async function loginCustomerFromMembershipToken(token) {
     showStatus("已從主系統驗證登入，請選擇充值店舖並上傳截圖。", "info");
   } catch (error) {
     showError(error instanceof Error ? error.message : "主系統登入失敗");
+  } finally {
+    setAuthBooting(false);
+    renderCustomerSession();
   }
 }
 
@@ -607,9 +624,14 @@ window.addEventListener("load", async () => {
       const membershipToken = extractMembershipToken();
       if (membershipToken) {
         await loginCustomerFromMembershipToken(membershipToken);
+        return;
       }
     }
+    setAuthBooting(false);
+    renderCustomerSession();
   } catch (error) {
+    setAuthBooting(false);
+    renderCustomerSession();
     showError(error instanceof Error ? error.message : "初始化失敗");
   }
 });

@@ -51,6 +51,42 @@ create table if not exists public.customer_accounts (
   created_at timestamptz not null default now()
 );
 
+alter table public.customer_accounts alter column password drop not null;
+alter table public.customer_accounts add column if not exists auth_source text not null default 'local';
+alter table public.customer_accounts add column if not exists external_member_id text unique;
+alter table public.customer_accounts add column if not exists full_name text;
+alter table public.customer_accounts add column if not exists phone text;
+alter table public.customer_accounts add column if not exists membership_status text;
+alter table public.customer_accounts add column if not exists profile_json jsonb not null default '{}'::jsonb;
+alter table public.customer_accounts add column if not exists provisioned_at timestamptz;
+alter table public.customer_accounts add column if not exists last_login_at timestamptz;
+alter table public.customer_accounts add column if not exists last_synced_at timestamptz;
+
+create table if not exists public.membership_token_logins (
+  id uuid primary key default gen_random_uuid(),
+  jti text not null unique,
+  token_hash text not null,
+  issuer text not null,
+  audience text not null,
+  subject text not null,
+  member_code text not null,
+  portal_role text not null,
+  status text not null,
+  reject_reason text,
+  expires_at timestamptz not null,
+  used_at timestamptz,
+  request_ip text,
+  user_agent text,
+  claims_json jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_membership_token_logins_member_code_created
+  on public.membership_token_logins(member_code, created_at desc);
+
+create index if not exists idx_membership_token_logins_status_created
+  on public.membership_token_logins(status, created_at desc);
+
 insert into public.customer_accounts (code, password)
 values ('63936541', '1234')
 on conflict (code) do update set password = excluded.password;

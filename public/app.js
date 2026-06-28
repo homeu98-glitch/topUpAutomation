@@ -164,8 +164,30 @@ function renderCustomerSession() {
     return;
   }
 
-  currentMemberBadge.textContent = `會員 ${state.user.memberCode}`;
+  currentMemberBadge.textContent =
+    state.user.authSource === "membership"
+      ? `會員 ${state.user.memberCode} · 主系統登入`
+      : `會員 ${state.user.memberCode}`;
   renderShopOptions();
+}
+
+function extractMembershipToken() {
+  const query = new URLSearchParams(window.location.search);
+  if (query.get("membershipToken")) return query.get("membershipToken");
+  if (query.get("token")) return query.get("token");
+
+  const hash = window.location.hash.startsWith("#") ? window.location.hash.slice(1) : window.location.hash;
+  if (!hash) return "";
+  const hashParams = new URLSearchParams(hash);
+  return hashParams.get("membershipToken") || hashParams.get("token") || "";
+}
+
+function clearMembershipTokenFromUrl() {
+  const url = new URL(window.location.href);
+  url.searchParams.delete("membershipToken");
+  url.searchParams.delete("token");
+  url.hash = "";
+  window.history.replaceState({}, document.title, url.toString());
 }
 
 function createDetailRow(label, value, extraClass = "") {
@@ -298,6 +320,24 @@ async function loadSession() {
     return;
   }
   renderCustomerSession();
+}
+
+async function loginCustomerFromMembershipToken(token) {
+  resetError();
+  try {
+    const payload = await apiFetch("/api/auth/membership-login", {
+      method: "POST",
+      body: JSON.stringify({ token }),
+    });
+    state.user = payload.user;
+    state.authMode = "customer";
+    renderAuthMode();
+    renderCustomerSession();
+    clearMembershipTokenFromUrl();
+    showStatus("已從主系統驗證登入，請選擇充值店舖並上傳截圖。", "info");
+  } catch (error) {
+    showError(error instanceof Error ? error.message : "主系統登入失敗");
+  }
 }
 
 async function loginCustomer(memberCode = memberCodeInput.value.trim(), password = customerPasswordInput.value.trim(), silent = false) {
@@ -563,6 +603,12 @@ window.addEventListener("load", async () => {
   try {
     renderAuthMode();
     await Promise.all([loadShops(), loadSession(), checkBackendAvailability()]);
+    if (!state.user) {
+      const membershipToken = extractMembershipToken();
+      if (membershipToken) {
+        await loginCustomerFromMembershipToken(membershipToken);
+      }
+    }
   } catch (error) {
     showError(error instanceof Error ? error.message : "初始化失敗");
   }

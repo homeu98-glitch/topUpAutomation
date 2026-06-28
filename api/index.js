@@ -48,6 +48,11 @@ export default async function handler(req, res) {
     return customerLoginHandler(req, res);
   }
 
+  if (pathname.endsWith("/auth/membership-login")) {
+    const { default: membershipLoginHandler } = await import("./auth/membership-login.js");
+    return membershipLoginHandler(req, res);
+  }
+
   if (pathname.endsWith("/auth/owner-login")) {
     const { default: ownerLoginHandler } = await import("./auth/owner-login.js");
     return ownerLoginHandler(req, res);

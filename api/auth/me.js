@@ -25,6 +25,10 @@ export default async function handler(req, res) {
       user: {
         role: session.role,
         memberCode: session.memberCode || null,
+        authSource: session.authSource || "local",
+        externalMemberId: session.externalMemberId || null,
+        fullName: session.fullName || null,
+        phone: session.phone || null,
         ownerLogin: session.ownerLogin || null,
         shopId: session.shopId || null,
         shopName: shop?.name || session.shopName || null,

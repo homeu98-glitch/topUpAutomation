@@ -9,6 +9,7 @@ import {
 import analyzeHandler from "./api/analyze.js";
 import meHandler from "./api/auth/me.js";
 import customerLoginHandler from "./api/auth/customer-login.js";
+import membershipLoginHandler from "./api/auth/membership-login.js";
 import logoutHandler from "./api/auth/logout.js";
 import ownerLoginHandler from "./api/auth/owner-login.js";
 import autoApproveHandler from "./api/cron/auto-approve.js";
@@ -46,6 +47,7 @@ mountRoute("/api/analyze", analyzeHandler);
 mountRoute("/api/shops", shopsHandler);
 mountRoute("/api/auth/me", meHandler);
 mountRoute("/api/auth/customer-login", customerLoginHandler);
+mountRoute("/api/auth/membership-login", membershipLoginHandler);
 mountRoute("/api/auth/owner-login", ownerLoginHandler);
 mountRoute("/api/auth/logout", logoutHandler);
 mountRoute("/api/customer/submit", customerSubmitHandler);

@@ -30,12 +30,20 @@ export default async function handler(req, res) {
     writeSession(res, {
       role: "customer",
       memberCode: String(memberCode),
+      authSource: customer.auth_source || "local",
+      externalMemberId: customer.external_member_id || null,
+      fullName: customer.full_name || null,
+      phone: customer.phone || null,
     });
 
     return res.status(200).json({
       user: {
         role: "customer",
         memberCode: String(memberCode),
+        authSource: customer.auth_source || "local",
+        externalMemberId: customer.external_member_id || null,
+        fullName: customer.full_name || null,
+        phone: customer.phone || null,
       },
     });
   } catch (error) {

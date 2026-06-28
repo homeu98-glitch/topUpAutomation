@@ -25,6 +25,11 @@ create table if not exists public.transactions (
   items jsonb not null default '[]'::jsonb,
   approved_by text,
   approved_at timestamptz,
+  membership_sync_status text,
+  membership_sync_attempted_at timestamptz,
+  membership_synced_at timestamptz,
+  membership_sync_error text,
+  membership_sync_response jsonb,
   submitted_at timestamptz not null default now()
 );
 
@@ -49,6 +54,11 @@ alter table public.transactions drop constraint if exists transactions_status_ch
 alter table public.transactions
   add constraint transactions_status_check
   check (status in ('pending', 'approved', 'rejected'));
+alter table public.transactions add column if not exists membership_sync_status text;
+alter table public.transactions add column if not exists membership_sync_attempted_at timestamptz;
+alter table public.transactions add column if not exists membership_synced_at timestamptz;
+alter table public.transactions add column if not exists membership_sync_error text;
+alter table public.transactions add column if not exists membership_sync_response jsonb;
 
 create table if not exists public.customer_accounts (
   code text primary key,

@@ -432,6 +432,9 @@
               <tr><td><code>MEMBERSHIP_TOKEN_ISSUER</code></td><td>Expected token issuer string.</td></tr>
               <tr><td><code>MEMBERSHIP_TOKEN_AUDIENCE</code></td><td>Expected token audience string.</td></tr>
               <tr><td><code>MEMBERSHIP_TOKEN_CLOCK_SKEW_SECONDS</code></td><td>Allowed small timestamp skew during verification.</td></tr>
+              <tr><td><code>MEMBERSHIP_SYNC_ENDPOINT</code></td><td>Membership-system API endpoint that receives approved top-up credit events.</td></tr>
+              <tr><td><code>MEMBERSHIP_SYNC_SECRET</code></td><td>Shared HMAC secret used to sign approval callback requests.</td></tr>
+              <tr><td><code>MEMBERSHIP_SYNC_TIMEOUT_MS</code></td><td>Timeout for the approval callback request.</td></tr>
             </tbody>
           </table>
         </section>
@@ -673,6 +676,81 @@ Content-Type: application/json
         </section>
 
         <section class="card">
+          <h2>Approval callback API</h2>
+          <p>
+            After a shop owner approves a top-up, the top-up system now calls the membership system before finalizing
+            the approval. If the membership callback fails, the transaction remains unapproved.
+          </p>
+          <table>
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>Direction</td><td>Top-up system → Membership system</td></tr>
+              <tr><td>Method</td><td><code>POST</code></td></tr>
+              <tr><td>URL</td><td><code>MEMBERSHIP_SYNC_ENDPOINT</code></td></tr>
+              <tr><td>Trigger</td><td>Only when a transaction is approved</td></tr>
+              <tr><td>Behavior on failure</td><td>Approval is blocked and the transaction stays pending</td></tr>
+            </tbody>
+          </table>
+          <p style="margin-top: 12px;">Headers sent by the top-up system:</p>
+          <table>
+            <thead>
+              <tr>
+                <th>Header</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td><code>Content-Type</code></td><td><code>application/json</code></td></tr>
+              <tr><td><code>X-Topup-Event</code></td><td>Fixed value: <code>topup_approved</code></td></tr>
+              <tr><td><code>X-Topup-Timestamp</code></td><td>ISO timestamp used in request signing</td></tr>
+              <tr><td><code>X-Topup-Signature</code></td><td>HMAC SHA256 hex digest of <code>{timestamp}.{rawBody}</code> using <code>MEMBERSHIP_SYNC_SECRET</code></td></tr>
+            </tbody>
+          </table>
+          <p style="margin-top: 12px;">Callback payload:</p>
+          <pre>{
+  "event": "topup_approved",
+  "transaction_id": "9c5f6947-4d8d-4c47-a725-2c4d44a7f0f3",
+  "member_code": "63936541",
+  "total_amount": 300,
+  "currency": "MOP",
+  "item_count": 2,
+  "approved_at": "2026-07-01T10:15:30.000Z",
+  "owner_login": "60000000",
+  "shop": {
+    "id": "local-shop-uuid",
+    "code": "POC001",
+    "name": "表嫂美食",
+    "external_shop_id": "shop-001"
+  },
+  "items": [
+    {
+      "id": "line-item-id",
+      "merchant_name": "表嫂美食",
+      "transaction_order_no": "2026062411365300000010",
+      "amount": 300,
+      "transaction_time": "2026-06-24 11:40:00",
+      "payment_method": "中國銀行澳門分行(6756)"
+    }
+  ]
+}</pre>
+          <p style="margin-top: 12px;">Expected membership-system success response:</p>
+          <pre>{
+  "ok": true,
+  "credited": true,
+  "reference_id": "membership-credit-000123"
+}</pre>
+          <p style="margin-top: 12px;">
+            Any HTTP <code>2xx</code> response is treated as success. Non-<code>2xx</code> responses block approval and
+            are stored in the top-up system transaction sync fields for troubleshooting.
+          </p>
+        </section>
+
+        <section class="card">
           <h2>Main-system signing example</h2>
           <p>
             The current implementation expects an HS256-signed token. Example pseudocode in Node.js:
@@ -692,6 +770,19 @@ function signMembershipToken(secret, payload) {
     .digest("base64url");
 
   return `${signingInput}.${signature}`;
+}</pre>
+          <p style="margin-top: 12px;">
+            Callback signature verification pseudocode for the membership system:
+          </p>
+          <pre>import crypto from "node:crypto";
+
+function verifyTopupCallbackSignature(secret, timestamp, rawBody, receivedSignature) {
+  const expected = crypto
+    .createHmac("sha256", secret)
+    .update(`${timestamp}.${rawBody}`)
+    .digest("hex");
+
+  return expected === receivedSignature;
 }</pre>
         </section>
 

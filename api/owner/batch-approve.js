@@ -30,7 +30,9 @@ export default async function handler(req, res) {
       ownerLogin: session.ownerLogin || "owner",
     });
 
-    return res.status(200).json({ ok: true, count: rows?.length || 0, rows });
+    const successCount = rows.filter((row) => row.ok).length;
+    const failedCount = rows.length - successCount;
+    return res.status(200).json({ ok: failedCount === 0, count: successCount, failedCount, rows });
   } catch (error) {
     return res.status(500).json({
       error: error instanceof Error ? error.message : "批次核准失敗",

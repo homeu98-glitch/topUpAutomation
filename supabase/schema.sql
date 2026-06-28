@@ -6,6 +6,8 @@ create table if not exists public.shops (
   name text not null,
   owner_login text not null unique,
   owner_password text not null,
+  auto_approve_enabled boolean not null default false,
+  auto_approve_interval_minutes integer not null default 5,
   is_active boolean not null default true,
   created_at timestamptz not null default now()
 );
@@ -16,7 +18,7 @@ create table if not exists public.transactions (
   customer_code text not null,
   total_amount numeric(12,2) not null default 0,
   item_count integer not null default 0,
-  status text not null default 'pending' check (status in ('pending', 'approved')),
+  status text not null default 'pending' check (status in ('pending', 'approved', 'rejected')),
   items jsonb not null default '[]'::jsonb,
   approved_by text,
   approved_at timestamptz,
@@ -34,6 +36,13 @@ values
   ('POC001', '表嫂美食', '60000000', '0000'),
   ('POC002', '示範茶餐廳', 'owner-demo', '123456')
 on conflict (code) do nothing;
+
+alter table public.shops add column if not exists auto_approve_enabled boolean not null default false;
+alter table public.shops add column if not exists auto_approve_interval_minutes integer not null default 5;
+alter table public.transactions drop constraint if exists transactions_status_check;
+alter table public.transactions
+  add constraint transactions_status_check
+  check (status in ('pending', 'approved', 'rejected'));
 
 create table if not exists public.customer_accounts (
   code text primary key,

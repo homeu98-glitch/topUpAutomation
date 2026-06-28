@@ -1,4 +1,4 @@
-import { applyCors, listTransactions } from "../../lib/topup-service.js";
+import { applyCors, rejectTransaction } from "../../lib/topup-service.js";
 import { readSession } from "../../lib/session.js";
 
 export default async function handler(req, res) {
@@ -8,8 +8,8 @@ export default async function handler(req, res) {
     return res.status(204).end();
   }
 
-  if (req.method !== "GET") {
-    res.setHeader("Allow", "GET");
+  if (req.method !== "POST") {
+    res.setHeader("Allow", "POST");
     return res.status(405).json({ error: "Method not allowed" });
   }
 
@@ -19,20 +19,20 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: "請先以店主身份登入" });
     }
 
-    const { mode, from, to, page, pageSize } = req.query || {};
-    const payload = await listTransactions({
+    const { transactionId } = req.body || {};
+    if (!transactionId) {
+      return res.status(400).json({ error: "缺少交易編號" });
+    }
+
+    const data = await rejectTransaction({
       shopId: session.shopId,
-      mode: String(mode || "pending"),
-      from: String(from || ""),
-      to: String(to || ""),
-      page: String(page || "1"),
-      pageSize: String(pageSize || "20"),
+      transactionId: String(transactionId),
     });
 
-    return res.status(200).json(payload);
+    return res.status(200).json({ ok: true, transaction: data });
   } catch (error) {
     return res.status(500).json({
-      error: error instanceof Error ? error.message : "讀取交易列表失敗",
+      error: error instanceof Error ? error.message : "拒絕交易失敗",
     });
   }
 }

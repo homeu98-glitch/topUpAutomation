@@ -78,6 +78,26 @@ export default async function handler(req, res) {
     return approveHandler(req, res);
   }
 
+  if (pathname.endsWith("/owner/batch-approve")) {
+    const { default: batchApproveHandler } = await import("./owner/batch-approve.js");
+    return batchApproveHandler(req, res);
+  }
+
+  if (pathname.endsWith("/owner/reject")) {
+    const { default: rejectHandler } = await import("./owner/reject.js");
+    return rejectHandler(req, res);
+  }
+
+  if (pathname.endsWith("/owner/settings")) {
+    const { default: settingsHandler } = await import("./owner/settings.js");
+    return settingsHandler(req, res);
+  }
+
+  if (pathname.endsWith("/cron/auto-approve")) {
+    const { default: cronHandler } = await import("./cron/auto-approve.js");
+    return cronHandler(req, res);
+  }
+
   return res.status(200).json({
     ok: true,
     route: "api/index",

@@ -67,11 +67,17 @@ table {
 .summary-actions,
 .session-bar,
 .session-info,
+.session-actions,
 .filter-bar,
 .date-filters,
 .tab-bar,
 .login-row,
-.login-grid {
+.login-grid,
+.owner-toolbar-actions,
+.toggle-row,
+.pagination-bar,
+.table-actions,
+.thumb-list {
   display: flex;
   gap: 12px;
   align-items: center;
@@ -80,7 +86,9 @@ table {
 .header-tools,
 .summary-actions,
 .date-filters,
-.login-grid {
+.login-grid,
+.owner-toolbar-actions,
+.thumb-list {
   flex-wrap: wrap;
 }
 
@@ -251,6 +259,14 @@ td {
 .portal-toolbar {
   padding-top: 10px;
   padding-bottom: 10px;
+}
+
+.page-size-picker,
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--subtle);
 }
 
 .primary-button {
@@ -536,12 +552,68 @@ th {
   color: #188038;
 }
 
+.rejected-pill {
+  background: rgba(217, 48, 37, 0.12);
+  color: #d93025;
+}
+
 .empty-state {
   padding: 18px;
   text-align: center;
   color: var(--subtle);
   background: #f8fafc;
   border-radius: 16px;
+}
+
+.table-wrapper {
+  overflow-x: auto;
+}
+
+.owner-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.owner-table th,
+.owner-table td {
+  padding: 12px 10px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+  font-size: 14px;
+}
+
+.owner-table th {
+  background: #f8fafc;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.thumb-list {
+  gap: 8px;
+}
+
+.thumb-button {
+  width: 52px;
+  height: 52px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  padding: 0;
+  background: #fff;
+  cursor: pointer;
+}
+
+.thumb-button img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.pagination-bar {
+  justify-content: flex-end;
+  margin-top: 16px;
 }
 
 .image-dialog {
@@ -579,13 +651,16 @@ th {
   .loading-card,
   .header-tools,
   .session-bar,
+  .session-actions,
   .filter-bar,
   .transaction-head,
   .transaction-actions,
   .owner-item-header,
   .login-row,
   .login-grid,
-  .summary-actions {
+  .summary-actions,
+  .owner-toolbar-actions,
+  .pagination-bar {
     flex-direction: column;
     align-items: flex-start;
   }
@@ -602,6 +677,12 @@ th {
     flex-direction: column;
     align-items: stretch;
   }
+
+  .thumb-button {
+    width: 44px;
+    height: 44px;
+  }
+
 
   th,
   td {

@@ -39,7 +39,13 @@
               <span id="ownerShopBadge" class="pill">未登入</span>
               <span id="ownerLoginBadge" class="pill subtle-pill">-</span>
             </div>
-            <button id="ownerLogoutButton" class="secondary-button" type="button">登出</button>
+            <div class="session-actions">
+              <label class="toggle-row">
+                <span>自動核准</span>
+                <input id="autoApproveToggle" type="checkbox" />
+              </label>
+              <button id="ownerLogoutButton" class="secondary-button" type="button">登出</button>
+            </div>
           </div>
         </section>
 
@@ -55,7 +61,19 @@
                 <input id="dateToInput" class="text-input" type="date" />
               </label>
             </div>
-            <button id="refreshDashboardButton" class="secondary-button" type="button">重新整理</button>
+            <div class="owner-toolbar-actions">
+              <label class="page-size-picker">
+                <span>每頁</span>
+                <select id="pageSizeSelect" class="text-input">
+                  <option value="20">20</option>
+                  <option value="50">50</option>
+                  <option value="100">100</option>
+                  <option value="all">All</option>
+                </select>
+              </label>
+              <button id="batchApproveButton" class="primary-button" type="button">批次核准</button>
+              <button id="refreshDashboardButton" class="secondary-button" type="button">重新整理</button>
+            </div>
           </div>
         </section>
 
@@ -66,10 +84,37 @@
             <button id="pendingTabButton" class="tab-button active" type="button">待審核</button>
             <button id="historyTabButton" class="tab-button" type="button">歷史紀錄</button>
           </div>
-          <div id="transactionList" class="transaction-list"></div>
+          <div class="table-wrapper">
+            <table class="owner-table">
+              <thead>
+                <tr>
+                  <th><input id="selectAllCheckbox" type="checkbox" /></th>
+                  <th>提交時間</th>
+                  <th>會員編號</th>
+                  <th>圖片</th>
+                  <th>圖片數</th>
+                  <th>總額</th>
+                  <th>狀態</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody id="transactionTableBody"></tbody>
+            </table>
+          </div>
+          <div id="transactionList" class="hidden"></div>
+          <div class="pagination-bar">
+            <button id="prevPageButton" class="secondary-button" type="button">上一頁</button>
+            <span id="paginationInfo" class="field-note">第 1 頁</span>
+            <button id="nextPageButton" class="secondary-button" type="button">下一頁</button>
+          </div>
         </section>
       </main>
     </div>
+
+    <dialog id="ownerImageDialog" class="image-dialog">
+      <button id="ownerCloseDialogButton" class="dialog-close" type="button">關閉</button>
+      <img id="ownerDialogImage" alt="交易圖片預覽" />
+    </dialog>
 
     <script>
       window.APP_CONFIG = {

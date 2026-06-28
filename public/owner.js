@@ -6,6 +6,13 @@ const apiBaseUrl = (() => {
 const state = {
   user: null,
   mode: "pending",
+  page: 1,
+  pageSize: "20",
+  total: 0,
+  pageCount: 1,
+  transactions: [],
+  selectedIds: new Set(),
+  autoApproveEnabled: false,
 };
 
 const ownerStatusBanner = document.getElementById("ownerStatusBanner");
@@ -16,15 +23,25 @@ const ownerLoginInput = document.getElementById("ownerLoginInput");
 const ownerPasswordInput = document.getElementById("ownerPasswordInput");
 const ownerLoginButton = document.getElementById("ownerLoginButton");
 const ownerLogoutButton = document.getElementById("ownerLogoutButton");
+const autoApproveToggle = document.getElementById("autoApproveToggle");
 const ownerShopBadge = document.getElementById("ownerShopBadge");
 const ownerLoginBadge = document.getElementById("ownerLoginBadge");
 const dateFromInput = document.getElementById("dateFromInput");
 const dateToInput = document.getElementById("dateToInput");
+const pageSizeSelect = document.getElementById("pageSizeSelect");
+const batchApproveButton = document.getElementById("batchApproveButton");
 const refreshDashboardButton = document.getElementById("refreshDashboardButton");
 const pendingTabButton = document.getElementById("pendingTabButton");
 const historyTabButton = document.getElementById("historyTabButton");
 const dashboardCards = document.getElementById("dashboardCards");
-const transactionList = document.getElementById("transactionList");
+const transactionTableBody = document.getElementById("transactionTableBody");
+const selectAllCheckbox = document.getElementById("selectAllCheckbox");
+const prevPageButton = document.getElementById("prevPageButton");
+const nextPageButton = document.getElementById("nextPageButton");
+const paginationInfo = document.getElementById("paginationInfo");
+const ownerImageDialog = document.getElementById("ownerImageDialog");
+const ownerDialogImage = document.getElementById("ownerDialogImage");
+const ownerCloseDialogButton = document.getElementById("ownerCloseDialogButton");
 
 function formatCurrency(value) {
   return `MOP ${Number(value || 0).toFixed(2)}`;
@@ -53,6 +70,12 @@ function showStatus(message) {
 function hideStatus() {
   ownerStatusBanner.classList.add("hidden");
   ownerStatusBanner.textContent = "";
+}
+
+function showImageDialog(src, alt) {
+  ownerDialogImage.src = src;
+  ownerDialogImage.alt = alt;
+  ownerImageDialog.showModal();
 }
 
 async function parseApiResponse(response) {
@@ -97,60 +120,88 @@ function renderDashboard(stats) {
     <article class="card stat-card"><div class="summary-label">上傳客戶數</div><div class="summary-value small-value">${stats.customerCount}</div></article>
     <article class="card stat-card"><div class="summary-label">充值總額</div><div class="summary-value small-value">${formatCurrency(stats.totalAmount)}</div></article>
     <article class="card stat-card"><div class="summary-label">已核准總額</div><div class="summary-value small-value">${formatCurrency(stats.approvedAmount)}</div></article>
+    <article class="card stat-card"><div class="summary-label">已拒絕筆數</div><div class="summary-value small-value">${stats.rejectedCount}</div></article>
   `;
+}
+
+function renderPagination() {
+  paginationInfo.textContent =
+    state.pageSize === "all"
+      ? `共 ${state.total} 筆`
+      : `第 ${state.page} / ${state.pageCount} 頁，共 ${state.total} 筆`;
+  prevPageButton.disabled = state.page <= 1 || state.pageSize === "all";
+  nextPageButton.disabled = state.page >= state.pageCount || state.pageSize === "all";
 }
 
 function renderTransactions(transactions) {
   if (!transactions.length) {
-    transactionList.innerHTML = `<div class="empty-state">目前沒有${state.mode === "pending" ? "待審核" : "歷史"}資料。</div>`;
+    transactionTableBody.innerHTML = `<tr><td colspan="8"><div class="empty-state">目前沒有${state.mode === "pending" ? "待審核" : "歷史"}資料。</div></td></tr>`;
+    renderPagination();
+    selectAllCheckbox.checked = false;
+    batchApproveButton.disabled = true;
     return;
   }
 
-  transactionList.innerHTML = transactions
+  transactionTableBody.innerHTML = transactions
     .map(
       (transaction) => `
-        <article class="transaction-card">
-          <div class="transaction-head">
-            <div>
-              <h3>會員 ${transaction.customer_code}</h3>
-              <p class="field-note">${formatDateTime(transaction.submitted_at)}</p>
-            </div>
-            <div class="transaction-actions">
-              <span class="pill ${transaction.status === "approved" ? "approved-pill" : ""}">${transaction.status === "approved" ? "已核准" : "待審核"}</span>
-              ${transaction.status === "pending" ? `<button class="primary-button approve-button" data-id="${transaction.id}" type="button">核准</button>` : ""}
-            </div>
-          </div>
-          <div class="transaction-summary">
-            <span>總額：${formatCurrency(transaction.total_amount)}</span>
-            <span>圖片：${transaction.item_count} 張</span>
-          </div>
-          <div class="owner-items">
-            ${(transaction.items || [])
+        <tr>
+          <td>
+            ${transaction.status === "pending" ? `<input class="row-checkbox" data-id="${transaction.id}" type="checkbox" ${state.selectedIds.has(transaction.id) ? "checked" : ""} />` : ""}
+          </td>
+          <td>${formatDateTime(transaction.submitted_at)}</td>
+          <td>${transaction.customer_code}</td>
+          <td>
+            <div class="thumb-list">
+              ${(transaction.items || [])
               .map(
                 (item, index) => `
-                  <div class="owner-item">
-                    <div class="owner-item-header">
-                      <strong>交易明細 ${index + 1}</strong>
-                      <span>${formatCurrency(item?.extracted?.amount)}</span>
-                    </div>
-                    <div class="owner-item-grid">
-                      <a href="${item.previewUrl}" target="_blank" rel="noreferrer">查看圖片</a>
-                      <span>商戶：${item?.extracted?.merchantName || "-"}</span>
-                      <span>訂單號：${item?.extracted?.transactionOrderNo || "-"}</span>
-                      <span>時間：${item?.extracted?.transactionTime || "-"}</span>
-                      <span>狀態：${item?.extracted?.orderStatus || "-"}</span>
-                    </div>
-                  </div>
+                  <button class="thumb-button" type="button" data-src="${item.previewUrl}" data-alt="交易明細 ${index + 1}">
+                    <img src="${item.previewUrl}" alt="交易明細 ${index + 1}" />
+                  </button>
                 `
               )
               .join("")}
-          </div>
-        </article>
+            </div>
+          </td>
+          <td>${transaction.item_count}</td>
+          <td>${formatCurrency(transaction.total_amount)}</td>
+          <td><span class="pill ${transaction.status === "approved" ? "approved-pill" : transaction.status === "rejected" ? "rejected-pill" : ""}">${transaction.status === "approved" ? "已核准" : transaction.status === "rejected" ? "已拒絕" : "待審核"}</span></td>
+          <td>
+            <div class="table-actions">
+              ${transaction.status === "pending" ? `<button class="primary-button approve-button" data-id="${transaction.id}" type="button">核准</button>` : ""}
+              ${transaction.status === "pending" ? `<button class="secondary-button reject-button" data-id="${transaction.id}" type="button">拒絕</button>` : ""}
+            </div>
+          </td>
+        </tr>
       `
     )
     .join("");
 
-  transactionList.querySelectorAll(".approve-button").forEach((button) => {
+  renderPagination();
+  selectAllCheckbox.checked =
+    transactions.length > 0 &&
+    transactions.every((transaction) => transaction.status !== "pending" || state.selectedIds.has(transaction.id));
+  batchApproveButton.disabled = !state.selectedIds.size || state.mode !== "pending";
+
+  transactionTableBody.querySelectorAll(".thumb-button").forEach((button) => {
+    button.addEventListener("click", () => {
+      showImageDialog(button.dataset.src, button.dataset.alt || "交易圖片");
+    });
+  });
+
+  transactionTableBody.querySelectorAll(".row-checkbox").forEach((checkbox) => {
+    checkbox.addEventListener("change", () => {
+      if (checkbox.checked) {
+        state.selectedIds.add(checkbox.dataset.id);
+      } else {
+        state.selectedIds.delete(checkbox.dataset.id);
+      }
+      batchApproveButton.disabled = !state.selectedIds.size || state.mode !== "pending";
+    });
+  });
+
+  transactionTableBody.querySelectorAll(".approve-button").forEach((button) => {
     button.addEventListener("click", async () => {
       try {
         button.disabled = true;
@@ -166,6 +217,23 @@ function renderTransactions(transactions) {
       }
     });
   });
+
+  transactionTableBody.querySelectorAll(".reject-button").forEach((button) => {
+    button.addEventListener("click", async () => {
+      try {
+        button.disabled = true;
+        await apiFetch("/api/owner/reject", {
+          method: "POST",
+          body: JSON.stringify({ transactionId: button.dataset.id }),
+        });
+        showStatus("已拒絕交易");
+        await loadOwnerData();
+      } catch (error) {
+        showError(error instanceof Error ? error.message : "拒絕失敗");
+        button.disabled = false;
+      }
+    });
+  });
 }
 
 async function loadOwnerData() {
@@ -173,14 +241,23 @@ async function loadOwnerData() {
   const params = new URLSearchParams();
   if (dateFromInput.value) params.set("from", dateFromInput.value);
   if (dateToInput.value) params.set("to", dateToInput.value);
+  params.set("page", String(state.page));
+  params.set("pageSize", String(state.pageSize));
 
-  const [dashboardPayload, transactionsPayload] = await Promise.all([
+  const [dashboardPayload, transactionsPayload, settingsPayload] = await Promise.all([
     apiFetch(`/api/owner/dashboard?${params.toString()}`),
     apiFetch(`/api/owner/transactions?${new URLSearchParams({ ...Object.fromEntries(params), mode: state.mode }).toString()}`),
+    apiFetch("/api/owner/settings"),
   ]);
 
   renderDashboard(dashboardPayload.stats);
-  renderTransactions(transactionsPayload.transactions || []);
+  state.transactions = transactionsPayload.rows || [];
+  state.total = transactionsPayload.total || 0;
+  state.pageCount = transactionsPayload.pageCount || 1;
+  state.page = transactionsPayload.page || 1;
+  state.autoApproveEnabled = Boolean(settingsPayload.settings?.auto_approve_enabled);
+  autoApproveToggle.checked = state.autoApproveEnabled;
+  renderTransactions(state.transactions);
 }
 
 async function loginOwner() {
@@ -210,8 +287,9 @@ async function logoutOwner() {
   await apiFetch("/api/auth/logout", { method: "POST" });
   state.user = null;
   renderOwnerSession();
-  transactionList.innerHTML = "";
+  transactionTableBody.innerHTML = "";
   dashboardCards.innerHTML = "";
+  state.selectedIds.clear();
   showStatus("已登出");
 }
 
@@ -226,6 +304,8 @@ async function loadSession() {
 
 pendingTabButton.addEventListener("click", async () => {
   state.mode = "pending";
+  state.page = 1;
+  state.selectedIds.clear();
   pendingTabButton.classList.add("active");
   historyTabButton.classList.remove("active");
   await loadOwnerData();
@@ -233,14 +313,89 @@ pendingTabButton.addEventListener("click", async () => {
 
 historyTabButton.addEventListener("click", async () => {
   state.mode = "history";
+  state.page = 1;
+  state.selectedIds.clear();
   historyTabButton.classList.add("active");
   pendingTabButton.classList.remove("active");
   await loadOwnerData();
 });
 
+pageSizeSelect.addEventListener("change", async () => {
+  state.pageSize = pageSizeSelect.value;
+  state.page = 1;
+  state.selectedIds.clear();
+  await loadOwnerData();
+});
+
+prevPageButton.addEventListener("click", async () => {
+  if (state.page <= 1) return;
+  state.page -= 1;
+  state.selectedIds.clear();
+  await loadOwnerData();
+});
+
+nextPageButton.addEventListener("click", async () => {
+  if (state.page >= state.pageCount) return;
+  state.page += 1;
+  state.selectedIds.clear();
+  await loadOwnerData();
+});
+
+selectAllCheckbox.addEventListener("change", () => {
+  if (selectAllCheckbox.checked) {
+    state.transactions
+      .filter((transaction) => transaction.status === "pending")
+      .forEach((transaction) => state.selectedIds.add(transaction.id));
+  } else {
+    state.transactions.forEach((transaction) => state.selectedIds.delete(transaction.id));
+  }
+  renderTransactions(state.transactions);
+});
+
+batchApproveButton.addEventListener("click", async () => {
+  if (!state.selectedIds.size) return;
+  try {
+    batchApproveButton.disabled = true;
+    await apiFetch("/api/owner/batch-approve", {
+      method: "POST",
+      body: JSON.stringify({ transactionIds: [...state.selectedIds] }),
+    });
+    state.selectedIds.clear();
+    showStatus("已完成批次核准");
+    await loadOwnerData();
+  } catch (error) {
+    showError(error instanceof Error ? error.message : "批次核准失敗");
+  } finally {
+    batchApproveButton.disabled = false;
+  }
+});
+
+autoApproveToggle.addEventListener("change", async () => {
+  try {
+    await apiFetch("/api/owner/settings", {
+      method: "POST",
+      body: JSON.stringify({ autoApproveEnabled: autoApproveToggle.checked }),
+    });
+    showStatus(autoApproveToggle.checked ? "已開啟自動核准，每 5 分鐘執行一次" : "已關閉自動核准");
+  } catch (error) {
+    autoApproveToggle.checked = !autoApproveToggle.checked;
+    showError(error instanceof Error ? error.message : "更新自動核准失敗");
+  }
+});
+
 ownerLoginButton.addEventListener("click", loginOwner);
 ownerLogoutButton.addEventListener("click", logoutOwner);
 refreshDashboardButton.addEventListener("click", loadOwnerData);
+ownerCloseDialogButton.addEventListener("click", () => ownerImageDialog.close());
+ownerImageDialog.addEventListener("click", (event) => {
+  const rect = ownerImageDialog.getBoundingClientRect();
+  const clickedInside =
+    rect.top <= event.clientY &&
+    event.clientY <= rect.top + rect.height &&
+    rect.left <= event.clientX &&
+    event.clientX <= rect.left + rect.width;
+  if (!clickedInside) ownerImageDialog.close();
+});
 
 window.addEventListener("load", async () => {
   try {

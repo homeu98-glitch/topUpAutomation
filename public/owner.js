@@ -106,6 +106,8 @@ function showDetailDialog(transaction) {
                 <span>時間：${item?.extracted?.transactionTime || "-"}</span>
                 <span>狀態：${item?.extracted?.orderStatus || "-"}</span>
                 <span>支付方式：${item?.extracted?.paymentMethod || "-"}</span>
+                ${item?.validation?.isShopMismatch ? `<span class="warning-text">商戶名稱與店舖不符，系統已自動拒絕</span>` : ""}
+                ${item?.validation?.isAbnormal ? `<span class="warning-text">aborormal：缺少 ${item.validation.missingKeys?.join("、") || "關鍵資料"}</span>` : ""}
               </div>
             </section>
           `
@@ -207,7 +209,16 @@ function renderTransactions(transactions) {
           </td>
           <td>${transaction.item_count}</td>
           <td>${formatCurrency(transaction.total_amount)}</td>
-          <td><span class="pill ${transaction.status === "approved" ? "approved-pill" : transaction.status === "rejected" ? "rejected-pill" : ""}">${transaction.status === "approved" ? "已核准" : transaction.status === "rejected" ? "已拒絕" : "待審核"}</span></td>
+          <td>
+            <div class="status-stack">
+              <span class="pill ${transaction.status === "approved" ? "approved-pill" : transaction.status === "rejected" ? "rejected-pill" : ""}">${transaction.status === "approved" ? "已核准" : transaction.status === "rejected" ? "已拒絕" : "待審核"}</span>
+              ${
+                (transaction.items || []).some((item) => item?.validation?.isAbnormal)
+                  ? `<span class="warning-text">aborormal</span>`
+                  : ""
+              }
+            </div>
+          </td>
           <td>
             <div class="table-actions">
               <button class="secondary-button detail-button" data-id="${transaction.id}" type="button">明細</button>

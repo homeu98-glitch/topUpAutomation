@@ -430,9 +430,12 @@ async function submitForApproval() {
     const payload = await parseApiResponse(response);
     if (!response.ok) throw new Error(payload.error || "送審失敗");
 
-    submitStatusCard.textContent = `已成功送交店主審核。交易編號：${payload.transactionId}`;
+    submitStatusCard.textContent =
+      payload.status === "rejected"
+        ? `此交易已被系統拒絕。原因：商戶名稱與所選店舖不符。交易編號：${payload.transactionId}`
+        : `已成功送交店主審核。交易編號：${payload.transactionId}`;
     submitStatusCard.classList.remove("hidden");
-    setConfirmState(true, "已送審");
+    setConfirmState(true, payload.status === "rejected" ? "已拒絕" : "已送審");
   } catch (error) {
     setConfirmState(false);
     showError(error instanceof Error ? error.message : "送審失敗");

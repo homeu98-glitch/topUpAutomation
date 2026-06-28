@@ -564,6 +564,16 @@ th {
   color: #d93025;
 }
 
+.warning-text {
+  color: #d93025;
+  font-weight: 700;
+}
+
+.status-stack {
+  display: grid;
+  gap: 6px;
+}
+
 .empty-state {
   padding: 18px;
   text-align: center;

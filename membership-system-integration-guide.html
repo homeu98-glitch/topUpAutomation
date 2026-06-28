@@ -458,9 +458,9 @@
               <tr><td><code>iat</code></td><td>Yes</td><td>Issued-at timestamp.</td></tr>
               <tr><td><code>nbf</code></td><td>Yes</td><td>Not-before timestamp.</td></tr>
               <tr><td><code>exp</code></td><td>Yes</td><td>Expiry timestamp.</td></tr>
-              <tr><td><code>portal_role</code></td><td>Yes</td><td>For this phase, it should be <code>customer</code>.</td></tr>
+              <tr><td><code>portal_role</code></td><td>Yes</td><td>Must be either <code>customer</code> or <code>owner</code>.</td></tr>
               <tr><td><code>member_code</code></td><td>Customer only</td><td>Local customer/member code used by the top-up portal.</td></tr>
-              <tr><td><code>membership_status</code></td><td>Yes</td><td>Expected values such as <code>active</code>, <code>inactive</code>, <code>suspended</code>.</td></tr>
+              <tr><td><code>membership_status</code></td><td>Customer only</td><td>Expected values such as <code>active</code>, <code>inactive</code>, <code>suspended</code>.</td></tr>
               <tr><td><code>shop_id</code></td><td>Yes</td><td>External shop identifier from the membership system.</td></tr>
               <tr><td><code>shop_code</code></td><td>Recommended</td><td>Shop code used for local matching or provisioning.</td></tr>
               <tr><td><code>shop_name</code></td><td>Yes</td><td>Display name of the selected shop.</td></tr>
@@ -468,6 +468,39 @@
               <tr><td><code>phone</code></td><td>Recommended</td><td>Used for local customer profile sync and support operations.</td></tr>
               <tr><td><code>full_name</code></td><td>Recommended</td><td>Used for optional local display/profile information.</td></tr>
               <tr><td><code>source_system</code></td><td>Recommended</td><td>Audit clarity when more than one upstream system exists.</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section class="card">
+          <h2>Customer token spec</h2>
+          <p>
+            Use the customer token when a logged-in member clicks into a specific shop from the membership webapp and
+            should be taken directly to the top-up page for that shop, without seeing a login form or a shop selector.
+          </p>
+          <table>
+            <thead>
+              <tr>
+                <th>Field</th>
+                <th>Required</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td><code>iss</code></td><td>Yes</td><td>Must equal the configured issuer, for example <code>main-membership-system</code>.</td></tr>
+              <tr><td><code>aud</code></td><td>Yes</td><td>Must equal the configured audience, for example <code>topup-portal</code>.</td></tr>
+              <tr><td><code>sub</code></td><td>Yes</td><td>Stable external member ID.</td></tr>
+              <tr><td><code>jti</code></td><td>Yes</td><td>Unique token ID. Must not be reused.</td></tr>
+              <tr><td><code>iat</code>, <code>nbf</code>, <code>exp</code></td><td>Yes</td><td>Short-lived token timing fields.</td></tr>
+              <tr><td><code>portal_role</code></td><td>Yes</td><td>Must be <code>customer</code>.</td></tr>
+              <tr><td><code>member_code</code></td><td>Yes</td><td>8-digit customer/member code used by the top-up system.</td></tr>
+              <tr><td><code>membership_status</code></td><td>Yes</td><td>Current implementation accepts only <code>active</code>.</td></tr>
+              <tr><td><code>shop_id</code></td><td>Yes</td><td>External shop identifier from the membership system.</td></tr>
+              <tr><td><code>shop_name</code></td><td>Yes</td><td>The selected shop name to display and map locally.</td></tr>
+              <tr><td><code>shop_code</code></td><td>Recommended</td><td>Helps local matching if a shop already exists in the top-up system.</td></tr>
+              <tr><td><code>phone</code></td><td>Recommended</td><td>Customer phone number for local profile sync.</td></tr>
+              <tr><td><code>full_name</code></td><td>Recommended</td><td>Customer display name.</td></tr>
+              <tr><td><code>source_system</code></td><td>Recommended</td><td>For audit and support tracing.</td></tr>
             </tbody>
           </table>
           <pre>{
@@ -488,6 +521,81 @@
   "full_name": "CHAN TAI MAN",
   "source_system": "main-membership-web"
 }</pre>
+          <p style="margin-top: 12px;">
+            Entry URL for customer:
+          </p>
+          <pre>https://your-topup-domain.example/#membershipToken=&lt;signed-customer-token&gt;</pre>
+          <p style="margin-top: 12px;">
+            Result:
+          </p>
+          <ul>
+            <li>customer login page is skipped</li>
+            <li>top-up page opens directly</li>
+            <li>shop is preassigned from the token</li>
+            <li>customer cannot switch shop in this integrated path</li>
+            <li>submitted record goes to the assigned shop automatically</li>
+          </ul>
+        </section>
+
+        <section class="card">
+          <h2>Owner token spec</h2>
+          <p>
+            Use the owner token when a logged-in shop owner clicks the backoffice link from the membership website and
+            should be taken directly into the correct shop-owner backoffice without seeing the local owner login page.
+          </p>
+          <table>
+            <thead>
+              <tr>
+                <th>Field</th>
+                <th>Required</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td><code>iss</code></td><td>Yes</td><td>Must equal the configured issuer.</td></tr>
+              <tr><td><code>aud</code></td><td>Yes</td><td>Must equal the configured audience.</td></tr>
+              <tr><td><code>sub</code></td><td>Yes</td><td>Stable external owner/member ID.</td></tr>
+              <tr><td><code>jti</code></td><td>Yes</td><td>Unique token ID. Must not be reused.</td></tr>
+              <tr><td><code>iat</code>, <code>nbf</code>, <code>exp</code></td><td>Yes</td><td>Short-lived token timing fields.</td></tr>
+              <tr><td><code>portal_role</code></td><td>Yes</td><td>Must be <code>owner</code>.</td></tr>
+              <tr><td><code>shop_id</code></td><td>Yes</td><td>External shop identifier from the membership system.</td></tr>
+              <tr><td><code>shop_name</code></td><td>Yes</td><td>Shop display name.</td></tr>
+              <tr><td><code>shop_code</code></td><td>Recommended</td><td>Shop code used for local matching/provisioning.</td></tr>
+              <tr><td><code>owner_login</code> or <code>owner_code</code></td><td>Recommended</td><td>Owner identifier to display in the local owner session.</td></tr>
+              <tr><td><code>full_name</code></td><td>Recommended</td><td>Owner display name for future UI use.</td></tr>
+              <tr><td><code>phone</code></td><td>Recommended</td><td>Owner phone if available.</td></tr>
+              <tr><td><code>source_system</code></td><td>Recommended</td><td>For audit and support tracing.</td></tr>
+            </tbody>
+          </table>
+          <pre>{
+  "iss": "main-membership-system",
+  "aud": "topup-portal",
+  "sub": "owner-2fa93bd1",
+  "jti": "2d511f01-0ac4-4bd2-bc23-c6f3025d9151",
+  "iat": 1736400000,
+  "nbf": 1736400000,
+  "exp": 1736400300,
+  "portal_role": "owner",
+  "shop_id": "shop-001",
+  "shop_code": "POC001",
+  "shop_name": "表嫂美食",
+  "owner_login": "60000000",
+  "full_name": "SHOP OWNER",
+  "phone": "8536XXXXXXX",
+  "source_system": "main-membership-web"
+}</pre>
+          <p style="margin-top: 12px;">
+            Entry URL for owner:
+          </p>
+          <pre>https://your-topup-domain.example/owner.html#membershipToken=&lt;signed-owner-token&gt;</pre>
+          <p style="margin-top: 12px;">
+            Result:
+          </p>
+          <ul>
+            <li>owner login page is skipped</li>
+            <li>owner enters the correct backoffice directly</li>
+            <li>the shop context is already attached</li>
+          </ul>
         </section>
 
         <section class="card">
@@ -532,7 +640,8 @@
             The main system may either redirect the browser with a token in the fragment, or directly POST the token
             to the exchange endpoint from the frontend. The simplest browser redirect form is:
           </p>
-          <pre>https://your-topup-domain.example/#membershipToken=&lt;signed-token&gt;</pre>
+          <pre>Customer: https://your-topup-domain.example/#membershipToken=&lt;signed-customer-token&gt;
+Owner:    https://your-topup-domain.example/owner.html#membershipToken=&lt;signed-owner-token&gt;</pre>
           <p style="margin-top: 12px;">
             The top-up page will detect the token, exchange it with the backend, create a local session, then clean
             the token out of the browser URL.
@@ -543,6 +652,23 @@ Content-Type: application/json
 
 {
   "token": "&lt;signed-token&gt;"
+}</pre>
+          <p style="margin-top: 12px;">
+            Successful response shape:
+          </p>
+          <pre>{
+  "user": {
+    "role": "customer or owner",
+    "memberCode": "63936541 or null",
+    "ownerLogin": "60000000 or null",
+    "authSource": "membership",
+    "externalMemberId": "external subject",
+    "fullName": "display name",
+    "phone": "phone number",
+    "shopId": "local shop uuid",
+    "shopName": "表嫂美食",
+    "shopCode": "POC001"
+  }
 }</pre>
         </section>
 

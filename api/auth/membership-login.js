@@ -25,12 +25,16 @@ export default async function handler(req, res) {
     });
 
     writeSession(res, {
-      role: "customer",
-      memberCode: payload.user.memberCode,
+      role: payload.user.role,
+      memberCode: payload.user.memberCode || null,
+      ownerLogin: payload.user.ownerLogin || null,
       authSource: payload.user.authSource || "membership",
       externalMemberId: payload.user.externalMemberId || null,
       fullName: payload.user.fullName || null,
       phone: payload.user.phone || null,
+      shopId: payload.user.shopId || null,
+      shopName: payload.user.shopName || null,
+      shopCode: payload.user.shopCode || null,
     });
 
     return res.status(200).json(payload);

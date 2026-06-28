@@ -37,6 +37,15 @@ body:not(.auth-booting) #authBootCard {
   display: none !important;
 }
 
+body.owner-auth-booting #ownerLoginCard,
+body.owner-auth-booting #ownerApp {
+  display: none !important;
+}
+
+body:not(.owner-auth-booting) #ownerAuthBootCard {
+  display: none !important;
+}
+
 button,
 input,
 table {
@@ -244,6 +253,11 @@ td {
   gap: 6px;
   font-size: 13px;
   color: var(--subtle);
+}
+
+.shop-fixed strong {
+  color: var(--text);
+  font-size: 16px;
 }
 
 .login-row {

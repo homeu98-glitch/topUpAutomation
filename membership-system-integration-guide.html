@@ -267,7 +267,7 @@
           <p class="subtitle" style="margin-top: 14px;">
             This document describes how the main membership system should connect to the top-up system using a
             signed, short-lived token flow, with automatic account provisioning into Supabase and local session
-            creation after verification.
+            creation after verification for both the customer top-up page and the shop-owner backoffice.
           </p>
           <div style="margin-top: 18px;">
             <span class="pill">Audience: engineering team</span>
@@ -281,8 +281,8 @@
             <li>required token fields</li>
             <li>security and replay protection</li>
             <li>database changes in Supabase</li>
-            <li>customer login and provisioning flow</li>
-            <li>owner-role boundary and future extension notes</li>
+            <li>customer direct entry with preassigned shop</li>
+            <li>owner direct backoffice entry</li>
           </ul>
         </aside>
       </header>
@@ -294,13 +294,14 @@
             The main membership system should be treated as the <strong>source of truth</strong> for authentication,
             while the top-up system remains the <strong>source of truth for top-up workflow data</strong>. Instead of
             creating local user credentials manually, the top-up system should accept a <strong>signed, short-lived
-            login token</strong>, verify it server-side, auto-provision or update the local customer record in
+            login token</strong>, verify it server-side, auto-provision or update the relevant local record in
             Supabase, and then issue its own local session cookie.
           </p>
           <p style="margin-top: 12px;">
             This approach avoids password sharing between systems, removes the need for a separate customer account
-            creation flow, supports automatic onboarding for new members, and keeps the top-up system compatible with
-            the current protected APIs and customer/owner portals already built in the project.
+            creation flow, supports automatic onboarding for new members, allows the customer page to open with the
+            correct shop already selected, and allows the shop owner to enter the backoffice directly without seeing a
+            local login form first.
           </p>
         </section>
 
@@ -322,7 +323,7 @@
             <tbody>
               <tr><td>Exchange endpoint</td><td><code>POST /api/auth/membership-login</code></td></tr>
               <tr><td>Supported token type</td><td>JWT-like signed token using <code>HS256</code></td></tr>
-              <tr><td>Portal bootstrap</td><td>Customer page can accept <code>?membershipToken=...</code> or <code>#membershipToken=...</code></td></tr>
+              <tr><td>Portal bootstrap</td><td>Customer and owner pages can accept <code>?membershipToken=...</code> or <code>#membershipToken=...</code></td></tr>
               <tr><td>Local login result</td><td>Top-up system creates its own local session cookie after verification</td></tr>
             </tbody>
           </table>
@@ -381,7 +382,7 @@
             <div class="flow-step">
               <div class="num">5</div>
               <h3>Create local session</h3>
-              <p>Top-up backend creates its own signed session cookie and the user enters the customer portal.</p>
+              <p>Top-up backend creates its own signed session cookie and sends the user directly into the correct portal.</p>
             </div>
           </div>
         </section>
@@ -458,8 +459,12 @@
               <tr><td><code>nbf</code></td><td>Yes</td><td>Not-before timestamp.</td></tr>
               <tr><td><code>exp</code></td><td>Yes</td><td>Expiry timestamp.</td></tr>
               <tr><td><code>portal_role</code></td><td>Yes</td><td>For this phase, it should be <code>customer</code>.</td></tr>
-              <tr><td><code>member_code</code></td><td>Yes</td><td>Local customer/member code used by the top-up portal.</td></tr>
+              <tr><td><code>member_code</code></td><td>Customer only</td><td>Local customer/member code used by the top-up portal.</td></tr>
               <tr><td><code>membership_status</code></td><td>Yes</td><td>Expected values such as <code>active</code>, <code>inactive</code>, <code>suspended</code>.</td></tr>
+              <tr><td><code>shop_id</code></td><td>Yes</td><td>External shop identifier from the membership system.</td></tr>
+              <tr><td><code>shop_code</code></td><td>Recommended</td><td>Shop code used for local matching or provisioning.</td></tr>
+              <tr><td><code>shop_name</code></td><td>Yes</td><td>Display name of the selected shop.</td></tr>
+              <tr><td><code>owner_login</code> or <code>owner_code</code></td><td>Owner only</td><td>Identifier to show in the owner session and use for shop-owner mapping.</td></tr>
               <tr><td><code>phone</code></td><td>Recommended</td><td>Used for local customer profile sync and support operations.</td></tr>
               <tr><td><code>full_name</code></td><td>Recommended</td><td>Used for optional local display/profile information.</td></tr>
               <tr><td><code>source_system</code></td><td>Recommended</td><td>Audit clarity when more than one upstream system exists.</td></tr>
@@ -476,6 +481,9 @@
   "portal_role": "customer",
   "member_code": "63936541",
   "membership_status": "active",
+  "shop_id": "shop-001",
+  "shop_code": "POC001",
+  "shop_name": "表嫂美食",
   "phone": "8536XXXXXXX",
   "full_name": "CHAN TAI MAN",
   "source_system": "main-membership-web"
@@ -638,7 +646,7 @@ function signMembershipToken(secret, payload) {
           <h2>Current implementation target inside the top-up system</h2>
           <p>
             The current project already has local session handling, customer and owner portals, Supabase-backed
-            transactions, and protected APIs. The new integration should be added as a login bootstrap layer rather
+            transactions, and protected APIs. The integration is added as a login bootstrap layer rather
             than rewriting the full application.
           </p>
           <div class="callout-row" style="margin-top: 14px;">
@@ -646,21 +654,22 @@ function signMembershipToken(secret, payload) {
               <h3>Frontend</h3>
               <p>
                 Customer portal checks for a membership token on page load, exchanges it, receives a local session,
-                then continues with the existing portal logic.
+                fills the assigned shop automatically, and skips the local login form. Owner portal does the same and
+                opens directly into the backoffice.
               </p>
             </div>
             <div class="callout">
               <h3>Backend</h3>
               <p>
-                Add a new route such as <code>/api/auth/membership-login</code> to verify token, provision customer,
-                and write the current local session cookie.
+                The new route <code>/api/auth/membership-login</code> verifies token, provisions customer and shop
+                data, and writes the current local session cookie for either the customer or owner portal.
               </p>
             </div>
             <div class="callout">
               <h3>Database</h3>
               <p>
-                Add identity-linkage fields and replay/audit logging in Supabase, without changing the owner workflow
-                or transaction review structure.
+                Add identity-linkage fields and replay/audit logging in Supabase, plus shop linkage fields so the
+                selected shop in the main system maps directly into the correct top-up record destination.
               </p>
             </div>
           </div>
@@ -671,8 +680,9 @@ function signMembershipToken(secret, payload) {
           <ol style="margin-top: 14px;">
             <li>Agree the issuer, audience, algorithm, and key rotation approach with the top-up system.</li>
             <li>Generate a signed short-lived token only after the user has passed the main system login process.</li>
-            <li>Include the approved customer claims in the token payload.</li>
-            <li>Send the user to the top-up portal entry URL with the token bootstrap mechanism.</li>
+            <li>Include the correct role and the target shop claims in the token payload.</li>
+            <li>For customer entry, send the user to the top-up portal entry URL for the selected shop.</li>
+            <li>For owner entry, send the user directly to the owner backoffice URL.</li>
             <li>Do not send raw passwords or long-lived secrets in the URL.</li>
             <li>Keep token expiry short and ensure <code>jti</code> is unique per issued token.</li>
             <li>If the top-up system rejects the token, surface the error to the user or redirect to a controlled failure path.</li>
@@ -709,15 +719,14 @@ function signMembershipToken(secret, payload) {
         <section class="card">
           <h2>Scope boundary for this phase</h2>
           <p>
-            This document is focused on <strong>customer portal integration</strong> first. The shop-owner role should
-            remain on the existing local login or be designed as a separate SSO phase, because owner access carries
-            higher risk and broader permissions inside the review and approval back office.
+            The implemented phase now covers both:
           </p>
-          <p style="margin-top: 12px;">
-            In other words, the recommended first implementation is:
-          </p>
-          <p class="ok" style="margin-top: 8px;">
-            main membership system → signed token → top-up customer auto-login + auto-provisioning
+          <ul style="margin-top: 12px;">
+            <li><strong>customer direct entry</strong> with shop preassigned from the membership system</li>
+            <li><strong>owner direct entry</strong> into the backoffice with shop context already attached</li>
+          </ul>
+          <p class="ok" style="margin-top: 12px;">
+            main membership system → signed token → direct portal entry without local login page
           </p>
         </section>
       </main>

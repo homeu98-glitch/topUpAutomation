@@ -6,11 +6,10 @@
     <title>店主管理後台</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
-  <body class="owner-page">
+  <body class="owner-page owner-auth-booting">
     <div class="page">
       <header class="hero hero-compact">
         <div>
-          <div class="eyebrow">Top Up Automation POC</div>
           <h1>店主後台</h1>
           <p class="subtitle">查看待審核交易、核准充值紀錄與統計。</p>
         </div>
@@ -19,11 +18,17 @@
 
       <section id="ownerStatusBanner" class="card status-banner hidden"></section>
       <section id="ownerErrorCard" class="card error-card hidden"></section>
+      <section id="ownerAuthBootCard" class="card loading-card">
+        <div class="spinner"></div>
+        <div>
+          <h2>登入檢查中</h2>
+          <p>系統正在確認主系統登入狀態，請稍候。</p>
+        </div>
+      </section>
 
       <section id="ownerLoginCard" class="card login-card">
         <div class="section-header">
           <h2>店主登入</h2>
-          <span class="pill">POC</span>
         </div>
         <div class="login-grid">
           <input id="ownerLoginInput" class="text-input" type="text" inputmode="numeric" maxlength="8" placeholder="8 位店主帳號，例如 60000000" />

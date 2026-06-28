@@ -10,9 +10,8 @@
     <div class="page compact-page">
       <header class="hero hero-compact">
         <div>
-          <div class="eyebrow">Top Up Automation POC</div>
           <h1>充值上傳</h1>
-          <p class="subtitle">登入後上傳截圖並送交店主審核。</p>
+          <p class="subtitle">上傳截圖並送交店主審核。</p>
         </div>
       </header>
 
@@ -29,7 +28,6 @@
       <section id="customerLoginCard" class="card login-card">
         <div class="section-header">
           <h2>登入</h2>
-          <span class="pill">POC</span>
         </div>
         <div class="tab-bar auth-toggle">
           <button id="customerModeButton" class="tab-button active" type="button">客戶</button>
@@ -67,7 +65,11 @@
       <main id="customerPortal" class="hidden">
         <section class="card portal-toolbar">
           <div class="header-tools">
-            <label class="shop-picker">
+            <div class="shop-picker shop-fixed">
+              <span>充值店舖</span>
+              <strong id="assignedShopLabel">未指定店舖</strong>
+            </div>
+            <label id="shopSelectWrapper" class="shop-picker hidden">
               <span>選擇充值店舖</span>
               <select id="shopSelect"></select>
             </label>

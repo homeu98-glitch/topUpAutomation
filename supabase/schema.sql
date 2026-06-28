@@ -6,6 +6,9 @@ create table if not exists public.shops (
   name text not null,
   owner_login text not null unique,
   owner_password text not null,
+  external_shop_id text unique,
+  owner_external_id text,
+  auth_source text not null default 'local',
   auto_approve_enabled boolean not null default false,
   auto_approve_interval_minutes integer not null default 5,
   is_active boolean not null default true,
@@ -39,6 +42,9 @@ on conflict (code) do nothing;
 
 alter table public.shops add column if not exists auto_approve_enabled boolean not null default false;
 alter table public.shops add column if not exists auto_approve_interval_minutes integer not null default 5;
+alter table public.shops add column if not exists external_shop_id text unique;
+alter table public.shops add column if not exists owner_external_id text;
+alter table public.shops add column if not exists auth_source text not null default 'local';
 alter table public.transactions drop constraint if exists transactions_status_check;
 alter table public.transactions
   add constraint transactions_status_check

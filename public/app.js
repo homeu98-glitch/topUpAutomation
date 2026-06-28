@@ -14,6 +14,8 @@ const state = {
 
 const fileInput = document.getElementById("fileInput");
 const shopSelect = document.getElementById("shopSelect");
+const shopSelectWrapper = document.getElementById("shopSelectWrapper");
+const assignedShopLabel = document.getElementById("assignedShopLabel");
 const memberCodeInput = document.getElementById("memberCodeInput");
 const customerPasswordInput = document.getElementById("customerPasswordInput");
 const customerLoginButton = document.getElementById("customerLoginButton");
@@ -147,6 +149,20 @@ function renderShopOptions() {
   }
 }
 
+function getActiveShopId() {
+  return state.user?.shopId || shopSelect.value || "";
+}
+
+function getActiveShopName() {
+  if (state.user?.shopName) return state.user.shopName;
+  const selected = state.shops.find((shop) => shop.id === shopSelect.value);
+  return selected?.name || "未指定店舖";
+}
+
+function shouldUseAssignedShopOnly() {
+  return Boolean(state.user?.authSource === "membership" && state.user?.shopId);
+}
+
 function renderAuthMode() {
   const isCustomer = state.authMode === "customer";
   customerModeButton.classList.toggle("active", isCustomer);
@@ -183,6 +199,8 @@ function renderCustomerSession() {
       ? `會員 ${state.user.memberCode} · 主系統登入`
       : `會員 ${state.user.memberCode}`;
   renderShopOptions();
+  assignedShopLabel.textContent = getActiveShopName();
+  shopSelectWrapper.classList.toggle("hidden", shouldUseAssignedShopOnly());
 }
 
 function extractMembershipToken() {
@@ -343,12 +361,16 @@ async function loginCustomerFromMembershipToken(token) {
       method: "POST",
       body: JSON.stringify({ token }),
     });
+    if (payload.user?.role === "owner") {
+      window.location.href = "/owner.html";
+      return;
+    }
     state.user = payload.user;
     state.authMode = "customer";
     renderAuthMode();
     renderCustomerSession();
     clearMembershipTokenFromUrl();
-    showStatus("已從主系統驗證登入，請選擇充值店舖並上傳截圖。", "info");
+    showStatus("已從主系統驗證登入，請直接上傳付款截圖。", "info");
   } catch (error) {
     showError(error instanceof Error ? error.message : "主系統登入失敗");
   } finally {
@@ -420,7 +442,7 @@ async function analyzeFiles() {
     return;
   }
 
-  if (!shopSelect.value || shopSelect.value === "fallback-shop") {
+  if (!getActiveShopId() || getActiveShopId() === "fallback-shop") {
     showError("請先選擇有效店舖。");
     return;
   }
@@ -467,7 +489,7 @@ async function submitForApproval() {
     showError("請先完成辨識再送審");
     return;
   }
-  if (!shopSelect.value || shopSelect.value === "fallback-shop") {
+  if (!getActiveShopId() || getActiveShopId() === "fallback-shop") {
     showError("請先選擇有效店舖。");
     return;
   }
@@ -477,7 +499,7 @@ async function submitForApproval() {
     const formData = new FormData();
     state.selectedFiles.forEach((file) => formData.append("images", file));
     formData.append("analyzedData", JSON.stringify(state.analyzedPayload));
-    formData.append("shopId", shopSelect.value);
+    formData.append("shopId", getActiveShopId());
 
     const response = await fetch(`${apiBaseUrl}/api/customer/submit`, {
       method: "POST",
@@ -568,6 +590,7 @@ shopSelect.addEventListener("change", async () => {
   if (state.user?.role === "customer") {
     const selectedShop = state.shops.find((shop) => shop.id === shopSelect.value);
     if (selectedShop) {
+      assignedShopLabel.textContent = selectedShop.name;
       showStatus(`已選擇店舖：${selectedShop.name}`, "info");
     }
   }

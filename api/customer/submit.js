@@ -57,7 +57,8 @@ export default async function handler(req, res) {
     const { fields, files } = await parseForm(req);
     const uploadedFiles = normalizeArray(files.images);
     const analyzedDataRaw = normalizeArray(fields.analyzedData)[0];
-    const shopId = String(normalizeArray(fields.shopId)[0] || "");
+    const requestedShopId = String(normalizeArray(fields.shopId)[0] || "");
+    const shopId = String(session.shopId || requestedShopId || "");
 
     if (!uploadedFiles.length) {
       return res.status(400).json({ error: "請先上傳圖片" });

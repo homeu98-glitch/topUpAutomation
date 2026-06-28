@@ -13,10 +13,12 @@ const state = {
   transactions: [],
   selectedIds: new Set(),
   autoApproveEnabled: false,
+  authBooting: true,
 };
 
 const ownerStatusBanner = document.getElementById("ownerStatusBanner");
 const ownerErrorCard = document.getElementById("ownerErrorCard");
+const ownerAuthBootCard = document.getElementById("ownerAuthBootCard");
 const ownerLoginCard = document.getElementById("ownerLoginCard");
 const ownerApp = document.getElementById("ownerApp");
 const ownerLoginInput = document.getElementById("ownerLoginInput");
@@ -73,6 +75,29 @@ function showStatus(message) {
 function hideStatus() {
   ownerStatusBanner.classList.add("hidden");
   ownerStatusBanner.textContent = "";
+}
+
+function extractMembershipToken() {
+  const query = new URLSearchParams(window.location.search);
+  if (query.get("membershipToken")) return query.get("membershipToken");
+  if (query.get("token")) return query.get("token");
+  const hash = window.location.hash.startsWith("#") ? window.location.hash.slice(1) : window.location.hash;
+  const hashParams = new URLSearchParams(hash);
+  return hashParams.get("membershipToken") || hashParams.get("token") || "";
+}
+
+function clearMembershipTokenFromUrl() {
+  const url = new URL(window.location.href);
+  url.searchParams.delete("membershipToken");
+  url.searchParams.delete("token");
+  url.hash = "";
+  window.history.replaceState({}, document.title, url.toString());
+}
+
+function setAuthBooting(isBooting) {
+  state.authBooting = isBooting;
+  document.body.classList.toggle("owner-auth-booting", isBooting);
+  ownerAuthBootCard.classList.toggle("hidden", !isBooting);
 }
 
 function showImageDialog(src, alt) {
@@ -148,6 +173,11 @@ async function apiFetch(path, options = {}) {
 
 function renderOwnerSession() {
   const isLoggedIn = state.user?.role === "owner";
+  if (state.authBooting) {
+    ownerLoginCard.classList.add("hidden");
+    ownerApp.classList.add("hidden");
+    return;
+  }
   ownerLoginCard.classList.toggle("hidden", isLoggedIn);
   ownerApp.classList.toggle("hidden", !isLoggedIn);
 
@@ -376,9 +406,37 @@ async function logoutOwner() {
 async function loadSession() {
   const payload = await apiFetch("/api/auth/me");
   state.user = payload.user;
+  if (state.user?.role === "customer") {
+    window.location.href = "/";
+    return;
+  }
   renderOwnerSession();
   if (state.user?.role === "owner") {
     await loadOwnerData();
+  }
+}
+
+async function loginOwnerFromMembershipToken(token) {
+  resetError();
+  try {
+    const payload = await apiFetch("/api/auth/membership-login", {
+      method: "POST",
+      body: JSON.stringify({ token }),
+    });
+    if (payload.user?.role === "customer") {
+      window.location.href = "/";
+      return;
+    }
+    state.user = payload.user;
+    clearMembershipTokenFromUrl();
+    renderOwnerSession();
+    hideStatus();
+    await loadOwnerData();
+  } catch (error) {
+    showError(error instanceof Error ? error.message : "主系統登入失敗");
+  } finally {
+    setAuthBooting(false);
+    renderOwnerSession();
   }
 }
 
@@ -497,7 +555,18 @@ ownerDetailDialog.addEventListener("click", (event) => {
 window.addEventListener("load", async () => {
   try {
     await loadSession();
+    if (!state.user) {
+      const membershipToken = extractMembershipToken();
+      if (membershipToken) {
+        await loginOwnerFromMembershipToken(membershipToken);
+        return;
+      }
+    }
+    setAuthBooting(false);
+    renderOwnerSession();
   } catch (error) {
+    setAuthBooting(false);
+    renderOwnerSession();
     showError(error instanceof Error ? error.message : "初始化失敗");
   }
 });

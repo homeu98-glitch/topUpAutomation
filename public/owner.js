@@ -42,6 +42,9 @@ const paginationInfo = document.getElementById("paginationInfo");
 const ownerImageDialog = document.getElementById("ownerImageDialog");
 const ownerDialogImage = document.getElementById("ownerDialogImage");
 const ownerCloseDialogButton = document.getElementById("ownerCloseDialogButton");
+const ownerDetailDialog = document.getElementById("ownerDetailDialog");
+const ownerDetailContent = document.getElementById("ownerDetailContent");
+const ownerCloseDetailButton = document.getElementById("ownerCloseDetailButton");
 
 function formatCurrency(value) {
   return `MOP ${Number(value || 0).toFixed(2)}`;
@@ -76,6 +79,44 @@ function showImageDialog(src, alt) {
   ownerDialogImage.src = src;
   ownerDialogImage.alt = alt;
   ownerImageDialog.showModal();
+}
+
+function showDetailDialog(transaction) {
+  ownerDetailContent.innerHTML = `
+    <div class="section-header">
+      <h3>交易明細</h3>
+      <span class="pill">${transaction.customer_code}</span>
+    </div>
+    <div class="detail-list owner-detail-list">
+      ${(transaction.items || [])
+        .map(
+          (item, index) => `
+            <section class="card compact-card owner-detail-card">
+              <div class="section-header">
+                <h3>交易明細 ${index + 1}</h3>
+                <span class="pill">${formatCurrency(item?.extracted?.amount)}</span>
+              </div>
+              <div class="owner-item-grid">
+                <button class="thumb-button detail-thumb-button" type="button" data-src="${item.previewUrl}" data-alt="交易明細 ${index + 1}">
+                  <img src="${item.previewUrl}" alt="交易明細 ${index + 1}" />
+                </button>
+                <span>商戶：${item?.extracted?.merchantName || "-"}</span>
+                <span>訂單號：${item?.extracted?.transactionOrderNo || "-"}</span>
+                <span>金額：${item?.extracted?.amount || "-"}</span>
+                <span>時間：${item?.extracted?.transactionTime || "-"}</span>
+                <span>狀態：${item?.extracted?.orderStatus || "-"}</span>
+                <span>支付方式：${item?.extracted?.paymentMethod || "-"}</span>
+              </div>
+            </section>
+          `
+        )
+        .join("")}
+    </div>
+  `;
+  ownerDetailDialog.showModal();
+  ownerDetailContent.querySelectorAll(".detail-thumb-button").forEach((button) => {
+    button.addEventListener("click", () => showImageDialog(button.dataset.src, button.dataset.alt || "交易圖片"));
+  });
 }
 
 async function parseApiResponse(response) {
@@ -169,8 +210,10 @@ function renderTransactions(transactions) {
           <td><span class="pill ${transaction.status === "approved" ? "approved-pill" : transaction.status === "rejected" ? "rejected-pill" : ""}">${transaction.status === "approved" ? "已核准" : transaction.status === "rejected" ? "已拒絕" : "待審核"}</span></td>
           <td>
             <div class="table-actions">
+              <button class="secondary-button detail-button" data-id="${transaction.id}" type="button">明細</button>
               ${transaction.status === "pending" ? `<button class="primary-button approve-button" data-id="${transaction.id}" type="button">核准</button>` : ""}
               ${transaction.status === "pending" ? `<button class="secondary-button reject-button" data-id="${transaction.id}" type="button">拒絕</button>` : ""}
+              ${transaction.status === "rejected" ? `<button class="secondary-button revoke-button" data-id="${transaction.id}" type="button">撤回</button>` : ""}
             </div>
           </td>
         </tr>
@@ -187,6 +230,15 @@ function renderTransactions(transactions) {
   transactionTableBody.querySelectorAll(".thumb-button").forEach((button) => {
     button.addEventListener("click", () => {
       showImageDialog(button.dataset.src, button.dataset.alt || "交易圖片");
+    });
+  });
+
+  transactionTableBody.querySelectorAll(".detail-button").forEach((button) => {
+    button.addEventListener("click", () => {
+      const transaction = state.transactions.find((row) => row.id === button.dataset.id);
+      if (transaction) {
+        showDetailDialog(transaction);
+      }
     });
   });
 
@@ -230,6 +282,23 @@ function renderTransactions(transactions) {
         await loadOwnerData();
       } catch (error) {
         showError(error instanceof Error ? error.message : "拒絕失敗");
+        button.disabled = false;
+      }
+    });
+  });
+
+  transactionTableBody.querySelectorAll(".revoke-button").forEach((button) => {
+    button.addEventListener("click", async () => {
+      try {
+        button.disabled = true;
+        await apiFetch("/api/owner/revoke", {
+          method: "POST",
+          body: JSON.stringify({ transactionId: button.dataset.id }),
+        });
+        showStatus("已撤回拒絕，交易已返回待審核");
+        await loadOwnerData();
+      } catch (error) {
+        showError(error instanceof Error ? error.message : "撤回失敗");
         button.disabled = false;
       }
     });
@@ -371,6 +440,13 @@ batchApproveButton.addEventListener("click", async () => {
 });
 
 autoApproveToggle.addEventListener("change", async () => {
+  if (autoApproveToggle.checked) {
+    const confirmed = window.confirm("開啟後，系統會每 5 分鐘自動核准所有待審核交易，無需人工操作。請先確認你已了解自動核准的風險，是否繼續？");
+    if (!confirmed) {
+      autoApproveToggle.checked = false;
+      return;
+    }
+  }
   try {
     await apiFetch("/api/owner/settings", {
       method: "POST",
@@ -387,6 +463,7 @@ ownerLoginButton.addEventListener("click", loginOwner);
 ownerLogoutButton.addEventListener("click", logoutOwner);
 refreshDashboardButton.addEventListener("click", loadOwnerData);
 ownerCloseDialogButton.addEventListener("click", () => ownerImageDialog.close());
+ownerCloseDetailButton.addEventListener("click", () => ownerDetailDialog.close());
 ownerImageDialog.addEventListener("click", (event) => {
   const rect = ownerImageDialog.getBoundingClientRect();
   const clickedInside =
@@ -395,6 +472,15 @@ ownerImageDialog.addEventListener("click", (event) => {
     rect.left <= event.clientX &&
     event.clientX <= rect.left + rect.width;
   if (!clickedInside) ownerImageDialog.close();
+});
+ownerDetailDialog.addEventListener("click", (event) => {
+  const rect = ownerDetailDialog.getBoundingClientRect();
+  const clickedInside =
+    rect.top <= event.clientY &&
+    event.clientY <= rect.top + rect.height &&
+    rect.left <= event.clientX &&
+    event.clientX <= rect.left + rect.width;
+  if (!clickedInside) ownerDetailDialog.close();
 });
 
 window.addEventListener("load", async () => {

@@ -71,6 +71,7 @@ table {
 .filter-bar,
 .date-filters,
 .tab-bar,
+.list-toolbar,
 .login-row,
 .login-grid,
 .owner-toolbar-actions,
@@ -473,15 +474,21 @@ th {
 
 .dashboard-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 16px;
 }
 
 .stat-card {
   margin-top: 20px;
+  min-width: 0;
 }
 
 .tab-bar {
+  margin-bottom: 0;
+}
+
+.list-toolbar {
+  justify-content: space-between;
   margin-bottom: 18px;
 }
 
@@ -616,6 +623,35 @@ th {
   margin-top: 16px;
 }
 
+.owner-detail-content {
+  min-width: min(92vw, 920px);
+}
+
+.owner-detail-list {
+  margin-top: 16px;
+}
+
+.owner-detail-card {
+  margin-top: 0;
+}
+
+.compact-filter-bar {
+  align-items: flex-end;
+}
+
+.owner-toolbar-actions {
+  justify-content: flex-end;
+}
+
+.summary-value.small-value {
+  font-size: clamp(18px, 2.4vw, 28px);
+  word-break: break-word;
+}
+
+.summary-label {
+  font-size: clamp(12px, 1.4vw, 14px);
+}
+
 .image-dialog {
   width: min(92vw, 960px);
   border: 0;
@@ -653,6 +689,7 @@ th {
   .session-bar,
   .session-actions,
   .filter-bar,
+  .list-toolbar,
   .transaction-head,
   .transaction-actions,
   .owner-item-header,

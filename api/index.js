@@ -88,6 +88,11 @@ export default async function handler(req, res) {
     return rejectHandler(req, res);
   }
 
+  if (pathname.endsWith("/owner/revoke")) {
+    const { default: revokeHandler } = await import("./owner/revoke.js");
+    return revokeHandler(req, res);
+  }
+
   if (pathname.endsWith("/owner/settings")) {
     const { default: settingsHandler } = await import("./owner/settings.js");
     return settingsHandler(req, res);

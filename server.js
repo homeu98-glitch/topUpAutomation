@@ -2,14 +2,26 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import express from "express";
-import multer from "multer";
 import {
-  analyzeUploadedFiles,
   ensureStorageDir,
-  getHealthPayload,
   HAS_SUPABASE_STORAGE,
-  normalizeMemberCode,
 } from "./lib/topup-service.js";
+import analyzeHandler from "./api/analyze.js";
+import meHandler from "./api/auth/me.js";
+import customerLoginHandler from "./api/auth/customer-login.js";
+import logoutHandler from "./api/auth/logout.js";
+import ownerLoginHandler from "./api/auth/owner-login.js";
+import autoApproveHandler from "./api/cron/auto-approve.js";
+import customerSubmitHandler from "./api/customer/submit.js";
+import healthHandler from "./api/health.js";
+import approveHandler from "./api/owner/approve.js";
+import batchApproveHandler from "./api/owner/batch-approve.js";
+import dashboardHandler from "./api/owner/dashboard.js";
+import rejectHandler from "./api/owner/reject.js";
+import revokeHandler from "./api/owner/revoke.js";
+import settingsHandler from "./api/owner/settings.js";
+import transactionsHandler from "./api/owner/transactions.js";
+import shopsHandler from "./api/shops.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -18,20 +30,6 @@ const app = express();
 const PORT = Number(process.env.PORT || 3000);
 const STORAGE_DIR = path.join(__dirname, "storage");
 
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: {
-    files: 10,
-    fileSize: 12 * 1024 * 1024,
-  },
-  fileFilter: (_req, file, cb) => {
-    if (!file.mimetype.startsWith("image/")) {
-      return cb(new Error("只接受圖片檔案"));
-    }
-    cb(null, true);
-  },
-});
-
 app.use(express.json({ limit: "2mb" }));
 app.use(express.static(path.join(__dirname, "public")));
 
@@ -39,32 +37,26 @@ function isRunningDirectly() {
   return process.argv[1] && path.resolve(process.argv[1]) === __filename;
 }
 
-app.get("/api/health", async (_req, res) => {
-  await ensureStorageDir();
-  res.json(getHealthPayload());
-});
+function mountRoute(pathname, handler) {
+  app.all(pathname, async (req, res) => handler(req, res));
+}
 
-app.post("/api/analyze", upload.array("images", 10), async (req, res) => {
-  try {
-    const files = req.files || [];
-
-    if (!files.length) {
-      return res.status(400).json({ error: "請先選擇圖片" });
-    }
-
-    if (files.length > 10) {
-      return res.status(400).json({ error: "一次最多只可上傳 10 張圖片" });
-    }
-
-    const memberCode = normalizeMemberCode(req.body.memberCode);
-    const payload = await analyzeUploadedFiles(files, memberCode);
-    res.json(payload);
-  } catch (error) {
-    res.status(500).json({
-      error: error instanceof Error ? error.message : "系統錯誤，請稍後再試",
-    });
-  }
-});
+mountRoute("/api/health", healthHandler);
+mountRoute("/api/analyze", analyzeHandler);
+mountRoute("/api/shops", shopsHandler);
+mountRoute("/api/auth/me", meHandler);
+mountRoute("/api/auth/customer-login", customerLoginHandler);
+mountRoute("/api/auth/owner-login", ownerLoginHandler);
+mountRoute("/api/auth/logout", logoutHandler);
+mountRoute("/api/customer/submit", customerSubmitHandler);
+mountRoute("/api/owner/dashboard", dashboardHandler);
+mountRoute("/api/owner/transactions", transactionsHandler);
+mountRoute("/api/owner/approve", approveHandler);
+mountRoute("/api/owner/batch-approve", batchApproveHandler);
+mountRoute("/api/owner/reject", rejectHandler);
+mountRoute("/api/owner/revoke", revokeHandler);
+mountRoute("/api/owner/settings", settingsHandler);
+mountRoute("/api/cron/auto-approve", autoApproveHandler);
 
 if (!HAS_SUPABASE_STORAGE) {
   app.use("/storage", express.static(STORAGE_DIR));

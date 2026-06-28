@@ -391,6 +391,11 @@ async function analyzeFiles() {
     });
     const payload = await parseApiResponse(response);
     if (!response.ok) throw new Error(payload.error || "辨識失敗");
+    if (payload.hasDuplicates) {
+      resetResults();
+      showError("duplicated record, please reupload.");
+      return;
+    }
     renderResults(payload);
   } catch (error) {
     showError(error instanceof Error ? error.message : "系統錯誤，請稍後再試。");

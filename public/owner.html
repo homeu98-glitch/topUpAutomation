@@ -50,7 +50,7 @@
         </section>
 
         <section class="card">
-          <div class="filter-bar">
+          <div class="filter-bar compact-filter-bar">
             <div class="date-filters">
               <label>
                 <span>開始日期</span>
@@ -60,6 +60,17 @@
                 <span>結束日期</span>
                 <input id="dateToInput" class="text-input" type="date" />
               </label>
+            </div>
+          </div>
+        </section>
+
+        <section id="dashboardCards" class="dashboard-grid"></section>
+
+        <section class="card">
+          <div class="list-toolbar">
+            <div class="tab-bar">
+              <button id="pendingTabButton" class="tab-button active" type="button">待審核</button>
+              <button id="historyTabButton" class="tab-button" type="button">歷史紀錄</button>
             </div>
             <div class="owner-toolbar-actions">
               <label class="page-size-picker">
@@ -74,15 +85,6 @@
               <button id="batchApproveButton" class="primary-button" type="button">批次核准</button>
               <button id="refreshDashboardButton" class="secondary-button" type="button">重新整理</button>
             </div>
-          </div>
-        </section>
-
-        <section id="dashboardCards" class="dashboard-grid"></section>
-
-        <section class="card">
-          <div class="tab-bar">
-            <button id="pendingTabButton" class="tab-button active" type="button">待審核</button>
-            <button id="historyTabButton" class="tab-button" type="button">歷史紀錄</button>
           </div>
           <div class="table-wrapper">
             <table class="owner-table">
@@ -114,6 +116,11 @@
     <dialog id="ownerImageDialog" class="image-dialog">
       <button id="ownerCloseDialogButton" class="dialog-close" type="button">關閉</button>
       <img id="ownerDialogImage" alt="交易圖片預覽" />
+    </dialog>
+
+    <dialog id="ownerDetailDialog" class="image-dialog detail-dialog">
+      <button id="ownerCloseDetailButton" class="dialog-close" type="button">關閉</button>
+      <div id="ownerDetailContent" class="owner-detail-content"></div>
     </dialog>
 
     <script>

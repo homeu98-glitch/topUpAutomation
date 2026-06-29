@@ -172,6 +172,14 @@ td {
   text-align: center;
 }
 
+.upload-card {
+  cursor: pointer;
+}
+
+.upload-card:active {
+  transform: translateY(1px);
+}
+
 .status-banner {
   text-align: left;
   border: 1px solid #f6c26b;
@@ -781,6 +789,66 @@ th {
   word-break: break-word;
 }
 
+.bottom-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.98);
+  border-top: 1px solid var(--line);
+  box-shadow: 0 -14px 28px rgba(32, 33, 36, 0.08);
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  z-index: 20;
+}
+
+.bottom-bar-inner {
+  max-width: 920px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.bottom-total {
+  font-size: 20px;
+  margin-top: 4px;
+}
+
+body.has-bottom-bar .compact-page {
+  padding-bottom: 140px;
+}
+
+.amount-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.amount-chip {
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 999px;
+  padding: 10px 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.amount-chip.active {
+  border-color: #8ab4f8;
+  background: #eef4ff;
+  color: #174ea6;
+}
+
+.other-amount-row {
+  margin-top: 10px;
+}
+
+.other-amount-row .text-input {
+  width: 100%;
+  flex: 1 1 auto;
+}
 .summary-label {
   font-size: clamp(12px, 1.4vw, 14px);
 }

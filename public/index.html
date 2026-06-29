@@ -79,11 +79,7 @@
         <section id="introCard" class="card upload-card">
           <div class="upload-icon">＋</div>
           <h2>選擇交易截圖</h2>
-          <p>支援多選圖片。一次最多可上傳 10 張，手機版會自動彈出相簿選擇。</p>
-          <div class="actions compact-actions">
-            <button id="fallbackSelectButton" class="primary-button" type="button">選擇圖片</button>
-            <button id="selectButton" class="secondary-button" type="button">重新選擇圖片</button>
-          </div>
+          <p>點擊這裡選擇圖片（支援多選，最多 10 張）。</p>
         </section>
 
         <section id="selectedCard" class="card hidden">
@@ -92,9 +88,7 @@
             <span id="selectionCount" class="pill">0 張</span>
           </div>
           <div id="selectedPreviewList" class="selected-preview-list"></div>
-          <div class="actions compact-actions">
-            <button id="uploadButton" class="primary-button" type="button">確認上傳並辨識</button>
-          </div>
+          <p class="field-note" style="margin-top: 10px;">點擊空白位置可重新選擇圖片。</p>
         </section>
 
         <section id="loadingCard" class="card loading-card hidden">
@@ -108,17 +102,6 @@
         <section id="errorCard" class="card error-card hidden"></section>
 
         <section id="resultCard" class="hidden">
-          <div class="summary-bar card">
-            <div>
-              <div class="summary-label">交易總額</div>
-              <div id="totalAmount" class="summary-value">MOP 0.00</div>
-            </div>
-            <div class="summary-actions">
-              <button id="confirmResultButton" class="primary-button" type="button">確認送審</button>
-              <div class="summary-note">辨識完成後請送交店主審核</div>
-            </div>
-          </div>
-
           <section id="submitStatusCard" class="card success-card hidden"></section>
 
           <div id="detailList" class="detail-list"></div>
@@ -145,6 +128,16 @@
       <button id="closeCustomerDetailButton" class="dialog-close" type="button">關閉</button>
       <div id="customerDetailContent" class="owner-detail-content"></div>
     </dialog>
+
+    <div id="customerBottomBar" class="bottom-bar hidden">
+      <div class="bottom-bar-inner">
+        <div>
+          <div class="summary-label">交易總額</div>
+          <div id="totalAmount" class="summary-value bottom-total">MOP 0.00</div>
+        </div>
+        <button id="confirmResultButton" class="primary-button" type="button">確認送審</button>
+      </div>
+    </div>
 
     <script>
       window.APP_CONFIG = {

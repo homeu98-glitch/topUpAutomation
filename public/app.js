@@ -33,9 +33,6 @@ const customerPortal = document.getElementById("customerPortal");
 const authBootCard = document.getElementById("authBootCard");
 const customerLogoutButton = document.getElementById("customerLogoutButton");
 const currentMemberBadge = document.getElementById("currentMemberBadge");
-const selectButton = document.getElementById("selectButton");
-const fallbackSelectButton = document.getElementById("fallbackSelectButton");
-const uploadButton = document.getElementById("uploadButton");
 const confirmResultButton = document.getElementById("confirmResultButton");
 const submitStatusCard = document.getElementById("submitStatusCard");
 const introCard = document.getElementById("introCard");
@@ -57,8 +54,8 @@ const customerTransactionList = document.getElementById("customerTransactionList
 const customerDetailDialog = document.getElementById("customerDetailDialog");
 const customerDetailContent = document.getElementById("customerDetailContent");
 const closeCustomerDetailButton = document.getElementById("closeCustomerDetailButton");
-const defaultUploadButtonText = uploadButton.textContent;
 const defaultConfirmButtonText = confirmResultButton.textContent;
+const customerBottomBar = document.getElementById("customerBottomBar");
 
 function formatCurrency(value) {
   return `MOP ${Number(value || 0).toFixed(2)}`;
@@ -123,9 +120,7 @@ async function apiFetch(path, options = {}) {
   return payload;
 }
 
-function setUploadingState(isUploading, label = defaultUploadButtonText) {
-  uploadButton.disabled = isUploading;
-  uploadButton.textContent = label;
+function setUploadingState(isUploading) {
   loadingCard.classList.toggle("hidden", !isUploading);
 }
 
@@ -244,6 +239,47 @@ function resetResults() {
   submitStatusCard.classList.add("hidden");
   submitStatusCard.textContent = "";
   setConfirmState(false);
+  customerBottomBar.classList.add("hidden");
+  document.body.classList.remove("has-bottom-bar");
+}
+
+function setBottomBarVisible(visible) {
+  customerBottomBar.classList.toggle("hidden", !visible);
+  document.body.classList.toggle("has-bottom-bar", visible);
+}
+
+function normalizeCandidateAmounts(values) {
+  const seen = new Set();
+  const normalized = [];
+  for (const raw of values || []) {
+    const number = Number(String(raw).replace(/[^0-9.]/g, ""));
+    if (!Number.isFinite(number) || number <= 0) continue;
+    if (number > 1000000) continue;
+    const fixed = number.toFixed(2);
+    if (seen.has(fixed)) continue;
+    seen.add(fixed);
+    normalized.push(fixed);
+  }
+  normalized.sort((a, b) => Number(b) - Number(a));
+  return normalized;
+}
+
+function getSelectedAmount(index, fallbackAmount) {
+  const selected = state.analyzedPayload?.items?.[index]?.selectedAmount;
+  if (selected) return selected;
+  const fixed = Number(String(fallbackAmount || 0).replace(/[^0-9.]/g, "") || 0).toFixed(2);
+  return fixed;
+}
+
+function recomputeTotalAmount() {
+  if (!state.analyzedPayload) return;
+  const items = Array.isArray(state.analyzedPayload.items) ? state.analyzedPayload.items : [];
+  const total = items.reduce((sum, item, index) => {
+    const selected = getSelectedAmount(index, item?.extracted?.amount);
+    return sum + Number(selected || 0);
+  }, 0);
+  state.analyzedPayload.totalAmount = total.toFixed(2);
+  totalAmount.textContent = formatCurrency(total);
 }
 
 function renderShopOptions() {
@@ -395,44 +431,100 @@ function renderResults(payload) {
   state.analyzedPayload = payload;
   resultCard.classList.remove("hidden");
   submitStatusCard.classList.add("hidden");
-  totalAmount.textContent = formatCurrency(payload.totalAmount);
   detailList.innerHTML = "";
   setConfirmState(false);
 
-  payload.items.forEach((item, index) => {
+  (payload.items || []).forEach((item, index) => {
     const card = document.createElement("section");
     card.className = "card detail-card compact-card";
 
-    const statusValue = item.extracted.orderStatus || "未能辨識";
-    const statusClass = statusValue === "交易成功" ? "status-success" : "status-unknown";
-    const confidence =
-      typeof item.extracted.confidence === "number" ? `${Math.round(item.extracted.confidence * 100)}%` : "未提供";
+    const extractedAmount = item?.extracted?.amount ?? "0";
+    const candidates = normalizeCandidateAmounts([
+      extractedAmount,
+      ...(Array.isArray(item?.extracted?.allDetectedAmounts) ? item.extracted.allDetectedAmounts : []),
+    ]).slice(0, 6);
+
+    const selectedAmount = getSelectedAmount(index, extractedAmount);
+    item.selectedAmount = selectedAmount;
 
     card.innerHTML = `
       <div class="section-header">
         <h3>交易明細 ${index + 1}</h3>
-        <span class="pill">${formatCurrency(item.extracted.amount)}</span>
+        <span class="pill">${formatCurrency(selectedAmount)}</span>
       </div>
-      <p class="detail-note">辨識信心：${confidence}</p>
-      <p class="detail-note">金額判定：${item.extracted.amountReason || "未提供"}</p>
+      <p class="detail-note">請確認充值金額是否正確：</p>
+      <div class="amount-picker" data-index="${index}">
+        ${(candidates || [])
+          .map(
+            (value) => `
+              <button type="button" class="amount-chip ${value === selectedAmount ? "active" : ""}" data-value="${value}">
+                ${formatCurrency(value)}
+              </button>
+            `
+          )
+          .join("")}
+        <button type="button" class="amount-chip other-chip ${candidates.includes(selectedAmount) ? "" : "active"}" data-value="__other__">其他</button>
+      </div>
+      <div class="other-amount-row ${candidates.includes(selectedAmount) ? "hidden" : ""}" data-index="${index}">
+        <input class="text-input other-amount-input" type="number" min="0" step="0.01" value="${selectedAmount}" placeholder="輸入金額" />
+      </div>
     `;
-
-    const table = document.createElement("table");
-    const tbody = document.createElement("tbody");
-    tbody.append(
-      createDetailRow("商戶名稱", item.extracted.merchantName),
-      createDetailRow("原交易訂單號", item.extracted.transactionOrderNo),
-      createDetailRow("交易金額", item.extracted.amount),
-      createDetailRow("實際交易時間", item.extracted.transactionTime),
-      createDetailRow("訂單狀態", statusValue, statusClass),
-      createDetailRow("支付方式", item.extracted.paymentMethod)
-    );
-    table.appendChild(tbody);
-
-    card.appendChild(table);
     detailList.appendChild(card);
   });
+
+  recomputeTotalAmount();
+  setBottomBarVisible(Boolean((payload.items || []).length));
 }
+
+detailList.addEventListener("click", (event) => {
+  const chip = event.target.closest(".amount-chip");
+  if (!chip) return;
+  const picker = chip.closest(".amount-picker");
+  if (!picker) return;
+  const index = Number(picker.dataset.index);
+  if (!Number.isFinite(index)) return;
+
+  const value = chip.dataset.value || "";
+  const item = state.analyzedPayload?.items?.[index];
+  if (!item) return;
+
+  const otherRow = detailList.querySelector(`.other-amount-row[data-index="${index}"]`);
+  const input = otherRow?.querySelector(".other-amount-input");
+
+  if (value === "__other__") {
+    otherRow?.classList.remove("hidden");
+    input?.focus();
+  } else {
+    item.selectedAmount = value;
+    otherRow?.classList.add("hidden");
+  }
+
+  // Update chip active styles and total
+  picker.querySelectorAll(".amount-chip").forEach((button) => button.classList.remove("active"));
+  chip.classList.add("active");
+  const pill = picker.closest(".detail-card")?.querySelector(".pill");
+  if (pill && value !== "__other__") pill.textContent = formatCurrency(value);
+  recomputeTotalAmount();
+});
+
+detailList.addEventListener("input", (event) => {
+  const input = event.target.closest(".other-amount-input");
+  if (!input) return;
+  const row = input.closest(".other-amount-row");
+  const index = Number(row?.dataset.index);
+  if (!Number.isFinite(index)) return;
+  const item = state.analyzedPayload?.items?.[index];
+  if (!item) return;
+
+  const value = Number(input.value || 0);
+  if (!Number.isFinite(value) || value <= 0) return;
+  item.selectedAmount = value.toFixed(2);
+
+  const card = row.closest(".detail-card");
+  const pill = card?.querySelector(".pill");
+  if (pill) pill.textContent = formatCurrency(item.selectedAmount);
+  recomputeTotalAmount();
+});
 
 async function checkBackendAvailability(showInlineError = false) {
   try {
@@ -546,6 +638,7 @@ async function logoutCustomer() {
   state.user = null;
   state.selectedFiles = [];
   state.customerTransactions = [];
+  setBottomBarVisible(false);
   memberCodeInput.value = "";
   customerPasswordInput.value = "";
   resetResults();
@@ -577,14 +670,14 @@ async function analyzeFiles() {
     return;
   }
 
-  setUploadingState(true, "檢查服務中...");
+  setUploadingState(true);
   const ready = await checkBackendAvailability(true);
   if (!ready) {
     setUploadingState(false);
     return;
   }
 
-  setUploadingState(true, "辨識中...");
+  setUploadingState(true);
 
   try {
     const formData = new FormData();
@@ -626,6 +719,13 @@ async function submitForApproval() {
 
   setConfirmState(true, "送審中...");
   try {
+    // Apply customer-selected amounts back into payload before submission
+    (state.analyzedPayload.items || []).forEach((item, index) => {
+      const selected = getSelectedAmount(index, item?.extracted?.amount);
+      if (item?.extracted) item.extracted.amount = selected;
+    });
+    recomputeTotalAmount();
+
     const formData = new FormData();
     state.selectedFiles.forEach((file) => formData.append("images", file));
     formData.append("analyzedData", JSON.stringify(state.analyzedPayload));
@@ -731,10 +831,13 @@ shopSelect.addEventListener("change", async () => {
 customerLoginButton.addEventListener("click", () => loginCustomer());
 ownerLoginButton.addEventListener("click", loginOwnerFromMain);
 customerLogoutButton.addEventListener("click", logoutCustomer);
-selectButton.addEventListener("click", openPicker);
-fallbackSelectButton.addEventListener("click", openPicker);
-uploadButton.addEventListener("click", analyzeFiles);
 confirmResultButton.addEventListener("click", submitForApproval);
+
+introCard.addEventListener("click", openPicker);
+selectedCard.addEventListener("click", (event) => {
+  if (event.target.closest(".selected-item-button") || event.target.closest(".selected-item-remove")) return;
+  openPicker();
+});
 customerModeButton.addEventListener("click", () => {
   state.authMode = "customer";
   renderAuthMode();
@@ -757,6 +860,8 @@ fileInput.addEventListener("change", async (event) => {
   state.selectedFiles = await optimizeSelectedFiles(files);
   resetResults();
   renderSelectedFiles();
+  // Auto-run analysis after selecting images (mobile-friendly flow)
+  setTimeout(() => analyzeFiles(), 150);
 });
 
 closeDialogButton.addEventListener("click", () => imageDialog.close());

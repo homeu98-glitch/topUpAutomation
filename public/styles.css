@@ -305,6 +305,37 @@ td {
   justify-content: flex-end;
 }
 
+.notification-button {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: #fff;
+  cursor: pointer;
+}
+
+.notification-icon {
+  font-size: 18px;
+}
+
+.notification-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #d93025;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .text-input,
 .shop-picker select,
 .date-filters input {
@@ -782,6 +813,21 @@ th {
   gap: 8px;
 }
 
+.thumb-with-amount {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.thumb-amount {
+  font-size: 12px;
+  font-weight: 700;
+  color: #174ea6;
+  text-align: center;
+  max-width: 64px;
+}
+
 .thumb-button {
   width: 52px;
   height: 52px;
@@ -839,6 +885,26 @@ th {
 .detail-dialog-actions {
   flex-wrap: wrap;
   justify-content: flex-end;
+}
+
+.owner-loading-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.48);
+  display: grid;
+  place-items: center;
+  z-index: 60;
+}
+
+.owner-loading-card {
+  display: grid;
+  gap: 12px;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 22px 26px;
+  box-shadow: var(--shadow);
 }
 
 .owner-detail-list {

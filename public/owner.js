@@ -16,7 +16,12 @@ const state = {
   autoApproveIntervalSeconds: 300,
   authBooting: true,
   searchTerm: "",
+  pendingCount: 0,
+  isLoadingOwnerData: false,
 };
+const OWNER_POLL_INTERVAL_MS = 3000;
+let ownerPollTimer = null;
+let statusHideTimer = null;
 
 const ownerStatusBanner = document.getElementById("ownerStatusBanner");
 const ownerErrorCard = document.getElementById("ownerErrorCard");
@@ -29,6 +34,8 @@ const ownerPasswordInput = document.getElementById("ownerPasswordInput");
 const ownerLoginButton = document.getElementById("ownerLoginButton");
 const ownerLogoutButton = document.getElementById("ownerLogoutButton");
 const autoApproveButton = document.getElementById("autoApproveButton");
+const pendingNotificationButton = document.getElementById("pendingNotificationButton");
+const pendingNotificationBadge = document.getElementById("pendingNotificationBadge");
 const ownerShopBadge = document.getElementById("ownerShopBadge");
 const ownerLoginBadge = document.getElementById("ownerLoginBadge");
 const customerSearchInput = document.getElementById("customerSearchInput");
@@ -57,6 +64,8 @@ const autoApproveStateBadge = document.getElementById("autoApproveStateBadge");
 const autoApproveIntervalInput = document.getElementById("autoApproveIntervalInput");
 const disableAutoApproveButton = document.getElementById("disableAutoApproveButton");
 const confirmAutoApproveButton = document.getElementById("confirmAutoApproveButton");
+const ownerLoadingOverlay = document.getElementById("ownerLoadingOverlay");
+const ownerLoadingText = document.getElementById("ownerLoadingText");
 
 function formatCurrency(value) {
   return `MOP ${Number(value || 0).toFixed(2)}`;
@@ -77,14 +86,32 @@ function resetError() {
   ownerErrorCard.textContent = "";
 }
 
-function showStatus(message) {
+function showStatus(message, durationMs = 0) {
+  if (statusHideTimer) {
+    clearTimeout(statusHideTimer);
+    statusHideTimer = null;
+  }
   ownerStatusBanner.textContent = message;
   ownerStatusBanner.classList.remove("hidden");
+  if (durationMs > 0) {
+    statusHideTimer = setTimeout(() => {
+      hideStatus();
+    }, durationMs);
+  }
 }
 
 function hideStatus() {
+  if (statusHideTimer) {
+    clearTimeout(statusHideTimer);
+    statusHideTimer = null;
+  }
   ownerStatusBanner.classList.add("hidden");
   ownerStatusBanner.textContent = "";
+}
+
+function setOwnerLoading(visible, text = "正在刷新資料...") {
+  ownerLoadingText.textContent = text;
+  ownerLoadingOverlay.classList.toggle("hidden", !visible);
 }
 
 function extractMembershipToken() {
@@ -145,6 +172,7 @@ function showDetailDialog(transaction) {
                 <button class="thumb-button detail-thumb-button" type="button" data-src="${item.previewUrl}" data-alt="交易明細 ${index + 1}">
                   <img src="${item.previewUrl}" alt="交易明細 ${index + 1}" />
                 </button>
+                <span>客戶提交金額：${formatCurrency(item?.selectedAmount || item?.manualAmount || item?.extracted?.amount)}</span>
                 <label class="edit-field prominent-edit-field">
                   <span>可編輯金額</span>
                   <input class="text-input detail-amount-input" type="number" min="0" step="0.01" data-index="${index}" value="${Number(item?.extracted?.amount || 0).toFixed(2)}" />
@@ -236,6 +264,8 @@ function renderOwnerSession() {
   autoApproveButton.textContent = state.autoApproveEnabled
     ? `自動核准中（${state.autoApproveIntervalSeconds} 秒）`
     : "設定自動核准";
+  pendingNotificationBadge.textContent = String(state.pendingCount || 0);
+  pendingNotificationBadge.classList.toggle("hidden", !state.pendingCount);
 }
 
 function syncAutoApproveDialog() {
@@ -287,9 +317,12 @@ function renderTransactions(transactions) {
               ${(transaction.items || [])
               .map(
                 (item, index) => `
-                  <button class="thumb-button" type="button" data-src="${item.previewUrl}" data-alt="交易明細 ${index + 1}">
-                    <img src="${item.previewUrl}" alt="交易明細 ${index + 1}" />
-                  </button>
+                  <div class="thumb-with-amount">
+                    <button class="thumb-button" type="button" data-src="${item.previewUrl}" data-alt="交易明細 ${index + 1}">
+                      <img src="${item.previewUrl}" alt="交易明細 ${index + 1}" />
+                    </button>
+                    <span class="thumb-amount">${formatCurrency(item?.selectedAmount || item?.manualAmount || item?.extracted?.amount)}</span>
+                  </div>
                 `
               )
               .join("")}
@@ -360,8 +393,7 @@ function renderTransactions(transactions) {
           method: "POST",
           body: JSON.stringify({ transactionId: button.dataset.id }),
         });
-        showStatus("已核准交易");
-        await loadOwnerData();
+        await loadOwnerData({ showOverlay: true, loadingText: "正在核准並刷新資料...", showRefreshStatus: true });
       } catch (error) {
         showError(error instanceof Error ? error.message : "核准失敗");
         button.disabled = false;
@@ -377,8 +409,7 @@ function renderTransactions(transactions) {
           method: "POST",
           body: JSON.stringify({ transactionId: button.dataset.id }),
         });
-        showStatus("已拒絕交易");
-        await loadOwnerData();
+        await loadOwnerData({ showOverlay: true, loadingText: "正在拒絕並刷新資料...", showRefreshStatus: true });
       } catch (error) {
         showError(error instanceof Error ? error.message : "拒絕失敗");
         button.disabled = false;
@@ -394,8 +425,7 @@ function renderTransactions(transactions) {
           method: "POST",
           body: JSON.stringify({ transactionId: button.dataset.id }),
         });
-        showStatus("已撤回拒絕，交易已返回待審核");
-        await loadOwnerData();
+        await loadOwnerData({ showOverlay: true, loadingText: "正在撤回並刷新資料...", showRefreshStatus: true });
       } catch (error) {
         showError(error instanceof Error ? error.message : "撤回失敗");
         button.disabled = false;
@@ -404,7 +434,33 @@ function renderTransactions(transactions) {
   });
 }
 
-async function loadOwnerData() {
+async function runOwnerAutoApprovalSweep() {
+  if (!state.autoApproveEnabled) {
+    return { approvedCount: 0 };
+  }
+  try {
+    return await apiFetch("/api/owner/auto-approve-sweep", {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+  } catch {
+    return { approvedCount: 0 };
+  }
+}
+
+async function loadOwnerData(options = {}) {
+  const {
+    showOverlay = false,
+    loadingText = "正在刷新資料...",
+    showRefreshStatus = false,
+    runAutoApprove = false,
+  } = options;
+
+  if (state.isLoadingOwnerData) return;
+  state.isLoadingOwnerData = true;
+  if (showOverlay) {
+    setOwnerLoading(true, loadingText);
+  }
   resetError();
   const params = new URLSearchParams();
   params.set("page", String(state.page));
@@ -418,22 +474,63 @@ async function loadOwnerData() {
     mode: state.searchTerm ? "all" : state.mode,
   });
 
-  const [dashboardPayload, transactionsPayload, settingsPayload] = await Promise.all([
-    apiFetch(`/api/owner/dashboard?${params.toString()}`),
-    apiFetch(`/api/owner/transactions?${transactionQuery.toString()}`),
-    apiFetch("/api/owner/settings"),
-  ]);
+  try {
+    let sweepResult = { approvedCount: 0 };
+    if (runAutoApprove && state.autoApproveEnabled) {
+      sweepResult = await runOwnerAutoApprovalSweep();
+      if ((sweepResult.approvedCount || 0) > 0 && !showOverlay) {
+        setOwnerLoading(true, "自動核准中，正在刷新資料...");
+      }
+    }
 
-  renderDashboard(dashboardPayload.stats);
-  state.transactions = transactionsPayload.rows || [];
-  state.total = transactionsPayload.total || 0;
-  state.pageCount = transactionsPayload.pageCount || 1;
-  state.page = transactionsPayload.page || 1;
-  state.autoApproveEnabled = Boolean(settingsPayload.settings?.auto_approve_enabled);
-  state.autoApproveIntervalSeconds = Number(settingsPayload.settings?.auto_approve_interval_minutes || 300);
-  syncAutoApproveDialog();
-  renderOwnerSession();
-  renderTransactions(state.transactions);
+    const [dashboardPayload, transactionsPayload, settingsPayload, pendingPayload] = await Promise.all([
+      apiFetch(`/api/owner/dashboard?${params.toString()}`),
+      apiFetch(`/api/owner/transactions?${transactionQuery.toString()}`),
+      apiFetch("/api/owner/settings"),
+      apiFetch("/api/owner/transactions?page=1&pageSize=1&mode=pending"),
+    ]);
+
+    renderDashboard(dashboardPayload.stats);
+    state.transactions = transactionsPayload.rows || [];
+    state.total = transactionsPayload.total || 0;
+    state.pageCount = transactionsPayload.pageCount || 1;
+    state.page = transactionsPayload.page || 1;
+    state.pendingCount = pendingPayload.total || 0;
+    state.autoApproveEnabled = Boolean(settingsPayload.settings?.auto_approve_enabled);
+    state.autoApproveIntervalSeconds = Number(settingsPayload.settings?.auto_approve_interval_minutes || 300);
+    syncAutoApproveDialog();
+    renderOwnerSession();
+    renderTransactions(state.transactions);
+
+    if ((sweepResult.approvedCount || 0) > 0) {
+      showStatus(`已自動核准 ${sweepResult.approvedCount} 筆，列表已刷新`, 2500);
+    } else if (showRefreshStatus) {
+      showStatus("列表已刷新", 1800);
+    }
+    return true;
+  } catch (error) {
+    showError(error instanceof Error ? error.message : "讀取資料失敗");
+    return false;
+  } finally {
+    state.isLoadingOwnerData = false;
+    setOwnerLoading(false);
+  }
+}
+
+function stopOwnerPolling() {
+  if (ownerPollTimer) {
+    clearInterval(ownerPollTimer);
+    ownerPollTimer = null;
+  }
+}
+
+function startOwnerPolling() {
+  stopOwnerPolling();
+  if (state.user?.role !== "owner") return;
+  ownerPollTimer = setInterval(async () => {
+    if (document.hidden || state.isLoadingOwnerData) return;
+    await loadOwnerData({ runAutoApprove: true });
+  }, OWNER_POLL_INTERVAL_MS);
 }
 
 async function saveDetailChanges(transactionId, approveAfterSave) {
@@ -462,7 +559,7 @@ async function saveDetailChanges(transactionId, approveAfterSave) {
     }
 
     ownerDetailDialog.close();
-    await loadOwnerData();
+    await loadOwnerData({ showOverlay: true, loadingText: "正在刷新資料...", showRefreshStatus: true });
   } catch (error) {
     showError(error instanceof Error ? error.message : "儲存修改失敗");
   }
@@ -483,7 +580,8 @@ async function loginOwner() {
     state.user = payload.user;
     renderOwnerSession();
     hideStatus();
-    await loadOwnerData();
+    await loadOwnerData({ showOverlay: true, loadingText: "正在載入店舖資料..." });
+    startOwnerPolling();
   } catch (error) {
     showError(error instanceof Error ? error.message : "登入失敗");
   } finally {
@@ -492,10 +590,12 @@ async function loginOwner() {
 }
 
 async function logoutOwner() {
+  stopOwnerPolling();
   await apiFetch("/api/auth/logout", { method: "POST" });
   state.user = null;
   state.searchTerm = "";
   customerSearchInput.value = "";
+  state.pendingCount = 0;
   renderOwnerSession();
   transactionTableBody.innerHTML = "";
   dashboardCards.innerHTML = "";
@@ -512,7 +612,8 @@ async function loadSession() {
   }
   renderOwnerSession();
   if (state.user?.role === "owner") {
-    await loadOwnerData();
+    await loadOwnerData({ showOverlay: true, loadingText: "正在載入店舖資料..." });
+    startOwnerPolling();
   }
 }
 
@@ -531,7 +632,8 @@ async function loginOwnerFromMembershipToken(token) {
     clearMembershipTokenFromUrl();
     renderOwnerSession();
     hideStatus();
-    await loadOwnerData();
+    await loadOwnerData({ showOverlay: true, loadingText: "正在載入店舖資料..." });
+    startOwnerPolling();
   } catch (error) {
     showError(error instanceof Error ? error.message : "主系統登入失敗");
   } finally {
@@ -546,7 +648,7 @@ pendingTabButton.addEventListener("click", async () => {
   state.selectedIds.clear();
   pendingTabButton.classList.add("active");
   historyTabButton.classList.remove("active");
-  await loadOwnerData();
+  await loadOwnerData({ showOverlay: true, loadingText: "正在刷新待審核資料...", showRefreshStatus: true });
 });
 
 historyTabButton.addEventListener("click", async () => {
@@ -555,21 +657,21 @@ historyTabButton.addEventListener("click", async () => {
   state.selectedIds.clear();
   historyTabButton.classList.add("active");
   pendingTabButton.classList.remove("active");
-  await loadOwnerData();
+  await loadOwnerData({ showOverlay: true, loadingText: "正在刷新歷史紀錄...", showRefreshStatus: true });
 });
 
 pageSizeSelect.addEventListener("change", async () => {
   state.pageSize = pageSizeSelect.value;
   state.page = 1;
   state.selectedIds.clear();
-  await loadOwnerData();
+  await loadOwnerData({ showOverlay: true, loadingText: "正在刷新資料...", showRefreshStatus: true });
 });
 
 customerSearchButton.addEventListener("click", async () => {
   state.searchTerm = customerSearchInput.value.trim();
   state.page = 1;
   state.selectedIds.clear();
-  await loadOwnerData();
+  await loadOwnerData({ showOverlay: true, loadingText: "正在搜尋資料...", showRefreshStatus: true });
 });
 
 customerSearchInput.addEventListener("keydown", async (event) => {
@@ -577,7 +679,7 @@ customerSearchInput.addEventListener("keydown", async (event) => {
   state.searchTerm = customerSearchInput.value.trim();
   state.page = 1;
   state.selectedIds.clear();
-  await loadOwnerData();
+  await loadOwnerData({ showOverlay: true, loadingText: "正在搜尋資料...", showRefreshStatus: true });
 });
 
 customerSearchClearButton.addEventListener("click", async () => {
@@ -585,21 +687,21 @@ customerSearchClearButton.addEventListener("click", async () => {
   state.searchTerm = "";
   state.page = 1;
   state.selectedIds.clear();
-  await loadOwnerData();
+  await loadOwnerData({ showOverlay: true, loadingText: "正在刷新資料...", showRefreshStatus: true });
 });
 
 prevPageButton.addEventListener("click", async () => {
   if (state.page <= 1) return;
   state.page -= 1;
   state.selectedIds.clear();
-  await loadOwnerData();
+  await loadOwnerData({ showOverlay: true, loadingText: "正在切換頁面...", showRefreshStatus: true });
 });
 
 nextPageButton.addEventListener("click", async () => {
   if (state.page >= state.pageCount) return;
   state.page += 1;
   state.selectedIds.clear();
-  await loadOwnerData();
+  await loadOwnerData({ showOverlay: true, loadingText: "正在切換頁面...", showRefreshStatus: true });
 });
 
 selectAllCheckbox.addEventListener("change", () => {
@@ -622,8 +724,7 @@ batchApproveButton.addEventListener("click", async () => {
       body: JSON.stringify({ transactionIds: [...state.selectedIds] }),
     });
     state.selectedIds.clear();
-    showStatus("已完成批次核准");
-    await loadOwnerData();
+    await loadOwnerData({ showOverlay: true, loadingText: "正在批次核准並刷新資料...", showRefreshStatus: true });
   } catch (error) {
     showError(error instanceof Error ? error.message : "批次核准失敗");
   } finally {
@@ -644,7 +745,7 @@ async function updateAutoApproveSettings(autoApproveEnabled) {
     state.autoApproveIntervalSeconds = intervalSeconds;
     syncAutoApproveDialog();
     renderOwnerSession();
-    showStatus(autoApproveEnabled ? `已開啟自動核准，間隔 ${intervalSeconds} 秒` : "已關閉自動核准");
+    showStatus(autoApproveEnabled ? `已開啟自動核准，間隔 ${intervalSeconds} 秒` : "已關閉自動核准", 2200);
     if (!autoApproveEnabled) {
       autoApproveDialog.close();
     }
@@ -671,7 +772,17 @@ disableAutoApproveButton.addEventListener("click", async () => {
 
 ownerLoginButton.addEventListener("click", loginOwner);
 ownerLogoutButton.addEventListener("click", logoutOwner);
-refreshDashboardButton.addEventListener("click", loadOwnerData);
+refreshDashboardButton.addEventListener("click", async () => {
+  await loadOwnerData({ showOverlay: true, loadingText: "正在刷新資料...", showRefreshStatus: true, runAutoApprove: true });
+});
+pendingNotificationButton.addEventListener("click", async () => {
+  state.mode = "pending";
+  state.page = 1;
+  state.selectedIds.clear();
+  pendingTabButton.classList.add("active");
+  historyTabButton.classList.remove("active");
+  await loadOwnerData({ showOverlay: true, loadingText: "正在打開待審核資料...", showRefreshStatus: true });
+});
 ownerCloseDialogButton.addEventListener("click", () => ownerImageDialog.close());
 ownerCloseDetailButton.addEventListener("click", () => ownerDetailDialog.close());
 closeAutoApproveDialogButton.addEventListener("click", () => autoApproveDialog.close());
@@ -720,4 +831,9 @@ window.addEventListener("load", async () => {
     renderOwnerSession();
     showError(error instanceof Error ? error.message : "初始化失敗");
   }
+});
+
+document.addEventListener("visibilitychange", async () => {
+  if (document.hidden || state.user?.role !== "owner") return;
+  await loadOwnerData({ runAutoApprove: true });
 });

@@ -19,6 +19,7 @@ import healthHandler from "./api/health.js";
 import approveHandler from "./api/owner/approve.js";
 import batchApproveHandler from "./api/owner/batch-approve.js";
 import dashboardHandler from "./api/owner/dashboard.js";
+import autoApproveSweepHandler from "./api/owner/auto-approve-sweep.js";
 import rejectHandler from "./api/owner/reject.js";
 import revokeHandler from "./api/owner/revoke.js";
 import settingsHandler from "./api/owner/settings.js";
@@ -61,6 +62,7 @@ mountRoute("/api/owner/batch-approve", batchApproveHandler);
 mountRoute("/api/owner/reject", rejectHandler);
 mountRoute("/api/owner/revoke", revokeHandler);
 mountRoute("/api/owner/settings", settingsHandler);
+mountRoute("/api/owner/auto-approve-sweep", autoApproveSweepHandler);
 mountRoute("/api/owner/update-transaction", updateTransactionHandler);
 mountRoute("/api/cron/auto-approve", autoApproveHandler);
 

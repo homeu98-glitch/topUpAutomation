@@ -17,6 +17,10 @@
           <div id="ownerHeaderSession" class="header-session hidden">
             <span id="ownerShopBadge" class="pill">未登入</span>
             <span id="ownerLoginBadge" class="pill subtle-pill">-</span>
+            <button id="pendingNotificationButton" class="notification-button" type="button" aria-label="待審核通知">
+              <span class="notification-icon">🔔</span>
+              <span id="pendingNotificationBadge" class="notification-badge hidden">0</span>
+            </button>
             <button id="autoApproveButton" class="secondary-button" type="button">設定自動核准</button>
             <button id="ownerLogoutButton" class="secondary-button" type="button">登出</button>
           </div>
@@ -135,6 +139,13 @@
         </div>
       </div>
     </dialog>
+
+    <div id="ownerLoadingOverlay" class="owner-loading-overlay hidden" aria-hidden="true">
+      <div class="owner-loading-card">
+        <div class="spinner"></div>
+        <p id="ownerLoadingText">正在刷新資料...</p>
+      </div>
+    </div>
 
     <script>
       window.APP_CONFIG = {

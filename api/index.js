@@ -108,6 +108,11 @@ export default async function handler(req, res) {
     return settingsHandler(req, res);
   }
 
+  if (pathname.endsWith("/owner/auto-approve-sweep")) {
+    const { default: autoApproveSweepHandler } = await import("./owner/auto-approve-sweep.js");
+    return autoApproveSweepHandler(req, res);
+  }
+
   if (pathname.endsWith("/owner/update-transaction")) {
     const { default: updateTransactionHandler } = await import("./owner/update-transaction.js");
     return updateTransactionHandler(req, res);

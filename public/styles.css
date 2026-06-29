@@ -664,6 +664,20 @@ th {
   z-index: 1;
 }
 
+.customer-record-table th,
+.customer-record-table td {
+  white-space: nowrap;
+}
+
+.customer-record-table td:nth-child(1),
+.customer-record-table td:nth-child(2),
+.customer-record-table td:nth-child(4),
+.customer-record-table td:nth-child(5),
+.customer-record-table td:nth-child(6),
+.customer-record-table td:nth-child(7) {
+  vertical-align: middle;
+}
+
 .thumb-list {
   gap: 8px;
 }

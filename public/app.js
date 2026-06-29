@@ -10,6 +10,7 @@ const state = {
   analyzedPayload: null,
   authMode: "customer",
   authBooting: true,
+  customerTransactions: [],
 };
 
 const fileInput = document.getElementById("fileInput");
@@ -50,11 +51,22 @@ const statusBanner = document.getElementById("statusBanner");
 const imageDialog = document.getElementById("imageDialog");
 const dialogImage = document.getElementById("dialogImage");
 const closeDialogButton = document.getElementById("closeDialogButton");
+const customerTransactionsCard = document.getElementById("customerTransactionsCard");
+const refreshCustomerTransactionsButton = document.getElementById("refreshCustomerTransactionsButton");
+const customerTransactionTableBody = document.getElementById("customerTransactionTableBody");
+const customerDetailDialog = document.getElementById("customerDetailDialog");
+const customerDetailContent = document.getElementById("customerDetailContent");
+const closeCustomerDetailButton = document.getElementById("closeCustomerDetailButton");
 const defaultUploadButtonText = uploadButton.textContent;
 const defaultConfirmButtonText = confirmResultButton.textContent;
 
 function formatCurrency(value) {
   return `MOP ${Number(value || 0).toFixed(2)}`;
+}
+
+function formatDateTime(value) {
+  if (!value) return "-";
+  return new Date(value).toLocaleString("zh-Hant");
 }
 
 function formatBytes(bytes) {
@@ -128,6 +140,95 @@ function showImageDialog(src, alt) {
   imageDialog.showModal();
 }
 
+function renderCustomerDetailDialog(transaction) {
+  customerDetailContent.innerHTML = `
+    <div class="section-header">
+      <h3>交易明細</h3>
+      <span class="pill">${transaction.customer_code}</span>
+    </div>
+    <div class="detail-list owner-detail-list">
+      ${(transaction.items || [])
+        .map(
+          (item, index) => `
+            <section class="card compact-card owner-detail-card">
+              <div class="section-header">
+                <h3>交易明細 ${index + 1}</h3>
+                <span class="pill">${formatCurrency(item?.extracted?.amount)}</span>
+              </div>
+              <div class="owner-item-grid">
+                <button class="thumb-button detail-thumb-button" type="button" data-src="${item.previewUrl}" data-alt="交易明細 ${index + 1}">
+                  <img src="${item.previewUrl}" alt="交易明細 ${index + 1}" />
+                </button>
+                <span>商戶：${item?.extracted?.merchantName || "-"}</span>
+                <span>訂單號：${item?.extracted?.transactionOrderNo || "-"}</span>
+                <span>金額：${item?.extracted?.amount || "-"}</span>
+                <span>時間：${item?.extracted?.transactionTime || "-"}</span>
+                <span>狀態：${item?.extracted?.orderStatus || "-"}</span>
+                <span>支付方式：${item?.extracted?.paymentMethod || "-"}</span>
+              </div>
+            </section>
+          `
+        )
+        .join("")}
+    </div>
+  `;
+  customerDetailDialog.showModal();
+  customerDetailContent.querySelectorAll(".detail-thumb-button").forEach((button) => {
+    button.addEventListener("click", () => showImageDialog(button.dataset.src, button.dataset.alt || "交易圖片"));
+  });
+}
+
+function renderCustomerTransactions(transactions) {
+  if (!transactions.length) {
+    customerTransactionTableBody.innerHTML = `<tr><td colspan="7"><div class="empty-state">目前沒有交易紀錄。</div></td></tr>`;
+    return;
+  }
+
+  customerTransactionTableBody.innerHTML = transactions
+    .map((transaction) => {
+      const statusLabel =
+        transaction.status === "approved" ? "已核准" : transaction.status === "rejected" ? "已拒絕" : "待審核";
+      const statusClass =
+        transaction.status === "approved" ? "approved-pill" : transaction.status === "rejected" ? "rejected-pill" : "";
+      const shopName = state.user?.shopName || "-";
+      return `
+        <tr>
+          <td>${formatDateTime(transaction.submitted_at)}</td>
+          <td>${shopName}</td>
+          <td>
+            <div class="thumb-list">
+              ${(transaction.items || [])
+                .map(
+                  (item, index) => `
+                    <button class="thumb-button" type="button" data-src="${item.previewUrl}" data-alt="交易明細 ${index + 1}">
+                      <img src="${item.previewUrl}" alt="交易明細 ${index + 1}" />
+                    </button>
+                  `
+                )
+                .join("")}
+            </div>
+          </td>
+          <td>${transaction.item_count}</td>
+          <td>${formatCurrency(transaction.total_amount)}</td>
+          <td><span class="pill ${statusClass}">${statusLabel}</span></td>
+          <td><button class="secondary-button detail-button" data-id="${transaction.id}" type="button">明細</button></td>
+        </tr>
+      `;
+    })
+    .join("");
+
+  customerTransactionTableBody.querySelectorAll(".thumb-button").forEach((button) => {
+    button.addEventListener("click", () => showImageDialog(button.dataset.src, button.dataset.alt || "交易圖片"));
+  });
+
+  customerTransactionTableBody.querySelectorAll(".detail-button").forEach((button) => {
+    button.addEventListener("click", () => {
+      const transaction = state.customerTransactions.find((row) => row.id === button.dataset.id);
+      if (transaction) renderCustomerDetailDialog(transaction);
+    });
+  });
+}
+
 function resetResults() {
   state.analyzedPayload = null;
   resultCard.classList.add("hidden");
@@ -188,6 +289,7 @@ function renderCustomerSession() {
   customerLoginCard.classList.toggle("hidden", isLoggedIn);
   customerInfoCard.classList.toggle("hidden", !isLoggedIn);
   customerPortal.classList.toggle("hidden", !isLoggedIn);
+  customerTransactionsCard.classList.toggle("hidden", !isLoggedIn);
 
   if (!isLoggedIn) {
     currentMemberBadge.textContent = "未登入";
@@ -344,6 +446,18 @@ async function loadShops() {
   renderShopOptions();
 }
 
+async function loadCustomerTransactions() {
+  if (state.user?.role !== "customer") return;
+  try {
+    const payload = await apiFetch(`/api/customer/transactions?shopId=${encodeURIComponent(getActiveShopId())}`);
+    state.customerTransactions = payload.rows || [];
+    renderCustomerTransactions(state.customerTransactions);
+  } catch {
+    state.customerTransactions = [];
+    renderCustomerTransactions([]);
+  }
+}
+
 async function loadSession() {
   const payload = await apiFetch("/api/auth/me");
   state.user = payload.user;
@@ -352,6 +466,7 @@ async function loadSession() {
     return;
   }
   renderCustomerSession();
+  await loadCustomerTransactions();
 }
 
 async function loginCustomerFromMembershipToken(token) {
@@ -376,6 +491,7 @@ async function loginCustomerFromMembershipToken(token) {
   } finally {
     setAuthBooting(false);
     renderCustomerSession();
+    await loadCustomerTransactions();
   }
 }
 
@@ -402,6 +518,7 @@ async function loginCustomer(memberCode = memberCodeInput.value.trim(), password
     });
     state.user = payload.user;
     renderCustomerSession();
+    await loadCustomerTransactions();
     if (!silent) {
       showStatus("登入成功，請先選擇充值店舖，再上傳付款截圖。", "info");
       setTimeout(() => openPicker(), 250);
@@ -417,11 +534,13 @@ async function logoutCustomer() {
   await apiFetch("/api/auth/logout", { method: "POST" });
   state.user = null;
   state.selectedFiles = [];
+  state.customerTransactions = [];
   memberCodeInput.value = "";
   customerPasswordInput.value = "";
   resetResults();
   renderSelectedFiles();
   renderCustomerSession();
+  customerTransactionTableBody.innerHTML = "";
   showStatus("已登出", "info");
 }
 
@@ -515,6 +634,7 @@ async function submitForApproval() {
         : `已成功送交店主審核。交易編號：${payload.transactionId}`;
     submitStatusCard.classList.remove("hidden");
     setConfirmState(true, payload.status === "rejected" ? "已拒絕" : "已送審");
+    await loadCustomerTransactions();
   } catch (error) {
     setConfirmState(false);
     showError(error instanceof Error ? error.message : "送審失敗");
@@ -594,6 +714,7 @@ shopSelect.addEventListener("change", async () => {
       showStatus(`已選擇店舖：${selectedShop.name}`, "info");
     }
   }
+  await loadCustomerTransactions();
 });
 
 customerLoginButton.addEventListener("click", () => loginCustomer());
@@ -628,6 +749,19 @@ fileInput.addEventListener("change", async (event) => {
 });
 
 closeDialogButton.addEventListener("click", () => imageDialog.close());
+closeCustomerDetailButton.addEventListener("click", () => customerDetailDialog.close());
+customerDetailDialog.addEventListener("click", (event) => {
+  const rect = customerDetailDialog.getBoundingClientRect();
+  const clickedInside =
+    rect.top <= event.clientY &&
+    event.clientY <= rect.top + rect.height &&
+    rect.left <= event.clientX &&
+    event.clientX <= rect.left + rect.width;
+
+  if (!clickedInside) customerDetailDialog.close();
+});
+
+refreshCustomerTransactionsButton.addEventListener("click", loadCustomerTransactions);
 imageDialog.addEventListener("click", (event) => {
   const rect = imageDialog.getBoundingClientRect();
   const clickedInside =

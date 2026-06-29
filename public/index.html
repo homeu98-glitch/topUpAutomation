@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>交易截圖上傳 POC</title>
+    <title>交易截圖上傳</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body class="customer-page auth-booting">
@@ -123,6 +123,29 @@
 
           <div id="detailList" class="detail-list"></div>
         </section>
+
+        <section id="customerTransactionsCard" class="card hidden">
+          <div class="section-header">
+            <h2>交易紀錄</h2>
+            <button id="refreshCustomerTransactionsButton" class="secondary-button" type="button">重新整理</button>
+          </div>
+          <div class="table-wrapper">
+            <table class="owner-table customer-record-table">
+              <thead>
+                <tr>
+                  <th>提交時間</th>
+                  <th>店舖</th>
+                  <th>圖片</th>
+                  <th>圖片數</th>
+                  <th>總額</th>
+                  <th>狀態</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody id="customerTransactionTableBody"></tbody>
+            </table>
+          </div>
+        </section>
       </main>
     </div>
 
@@ -131,6 +154,11 @@
     <dialog id="imageDialog" class="image-dialog">
       <button id="closeDialogButton" class="dialog-close" type="button">關閉</button>
       <img id="dialogImage" alt="交易截圖放大預覽" />
+    </dialog>
+
+    <dialog id="customerDetailDialog" class="image-dialog detail-dialog">
+      <button id="closeCustomerDetailButton" class="dialog-close" type="button">關閉</button>
+      <div id="customerDetailContent" class="owner-detail-content"></div>
     </dialog>
 
     <script>

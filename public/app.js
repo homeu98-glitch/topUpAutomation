@@ -53,7 +53,7 @@ const dialogImage = document.getElementById("dialogImage");
 const closeDialogButton = document.getElementById("closeDialogButton");
 const customerTransactionsCard = document.getElementById("customerTransactionsCard");
 const refreshCustomerTransactionsButton = document.getElementById("refreshCustomerTransactionsButton");
-const customerTransactionTableBody = document.getElementById("customerTransactionTableBody");
+const customerTransactionList = document.getElementById("customerTransactionList");
 const customerDetailDialog = document.getElementById("customerDetailDialog");
 const customerDetailContent = document.getElementById("customerDetailContent");
 const closeCustomerDetailButton = document.getElementById("closeCustomerDetailButton");
@@ -180,11 +180,11 @@ function renderCustomerDetailDialog(transaction) {
 
 function renderCustomerTransactions(transactions) {
   if (!transactions.length) {
-    customerTransactionTableBody.innerHTML = `<tr><td colspan="7"><div class="empty-state">目前沒有交易紀錄。</div></td></tr>`;
+    customerTransactionList.innerHTML = `<div class="empty-state">目前沒有交易紀錄。</div>`;
     return;
   }
 
-  customerTransactionTableBody.innerHTML = transactions
+  customerTransactionList.innerHTML = transactions
     .map((transaction) => {
       const statusLabel =
         transaction.status === "approved" ? "已核准" : transaction.status === "rejected" ? "已拒絕" : "待審核";
@@ -192,36 +192,43 @@ function renderCustomerTransactions(transactions) {
         transaction.status === "approved" ? "approved-pill" : transaction.status === "rejected" ? "rejected-pill" : "";
       const shopName = state.user?.shopName || "-";
       return `
-        <tr>
-          <td>${formatDateTime(transaction.submitted_at)}</td>
-          <td>${shopName}</td>
-          <td>
-            <div class="thumb-list">
-              ${(transaction.items || [])
-                .map(
-                  (item, index) => `
-                    <button class="thumb-button" type="button" data-src="${item.previewUrl}" data-alt="交易明細 ${index + 1}">
-                      <img src="${item.previewUrl}" alt="交易明細 ${index + 1}" />
-                    </button>
-                  `
-                )
-                .join("")}
+        <article class="transaction-card">
+          <div class="transaction-head">
+            <div>
+              <div class="summary-label">${formatDateTime(transaction.submitted_at)}</div>
+              <div style="margin-top: 4px;"><strong>${shopName}</strong></div>
             </div>
-          </td>
-          <td>${transaction.item_count}</td>
-          <td>${formatCurrency(transaction.total_amount)}</td>
-          <td><span class="pill ${statusClass}">${statusLabel}</span></td>
-          <td><button class="secondary-button detail-button" data-id="${transaction.id}" type="button">明細</button></td>
-        </tr>
+            <span class="pill ${statusClass}">${statusLabel}</span>
+          </div>
+          <div class="transaction-summary">
+            <span>圖片數：${transaction.item_count}</span>
+            <span>總額：${formatCurrency(transaction.total_amount)}</span>
+          </div>
+          <div class="thumb-list" style="margin-top: 12px;">
+            ${(transaction.items || [])
+              .slice(0, 6)
+              .map(
+                (item, index) => `
+                  <button class="thumb-button" type="button" data-src="${item.previewUrl}" data-alt="交易明細 ${index + 1}">
+                    <img src="${item.previewUrl}" alt="交易明細 ${index + 1}" />
+                  </button>
+                `
+              )
+              .join("")}
+          </div>
+          <div class="transaction-actions" style="margin-top: 12px;">
+            <button class="secondary-button detail-button" data-id="${transaction.id}" type="button">明細</button>
+          </div>
+        </article>
       `;
     })
     .join("");
 
-  customerTransactionTableBody.querySelectorAll(".thumb-button").forEach((button) => {
+  customerTransactionList.querySelectorAll(".thumb-button").forEach((button) => {
     button.addEventListener("click", () => showImageDialog(button.dataset.src, button.dataset.alt || "交易圖片"));
   });
 
-  customerTransactionTableBody.querySelectorAll(".detail-button").forEach((button) => {
+  customerTransactionList.querySelectorAll(".detail-button").forEach((button) => {
     button.addEventListener("click", () => {
       const transaction = state.customerTransactions.find((row) => row.id === button.dataset.id);
       if (transaction) renderCustomerDetailDialog(transaction);
@@ -392,66 +399,38 @@ function renderResults(payload) {
   detailList.innerHTML = "";
   setConfirmState(false);
 
-  const rows = payload.items
-    .map((item, index) => {
-      const statusValue = item.extracted.orderStatus || "未能辨識";
-      const statusLabelClass = statusValue === "交易成功" ? "status-success" : "status-unknown";
+  payload.items.forEach((item, index) => {
+    const card = document.createElement("section");
+    card.className = "card detail-card compact-card";
 
-      const fallbackPreviewUrl =
-        state.selectedFiles?.[index] instanceof File ? URL.createObjectURL(state.selectedFiles[index]) : "";
-      const previewUrl = item.previewUrl || fallbackPreviewUrl;
+    const statusValue = item.extracted.orderStatus || "未能辨識";
+    const statusClass = statusValue === "交易成功" ? "status-success" : "status-unknown";
+    const confidence =
+      typeof item.extracted.confidence === "number" ? `${Math.round(item.extracted.confidence * 100)}%` : "未提供";
 
-      return `
-        <tr>
-          <td>${index + 1}</td>
-          <td>
-            ${
-              previewUrl
-                ? `<button class="thumb-button analysis-thumb" type="button" data-src="${previewUrl}" data-alt="交易明細 ${index + 1}">
-                    <img src="${previewUrl}" alt="交易明細 ${index + 1}" />
-                  </button>`
-                : "-"
-            }
-          </td>
-          <td>${item.extracted.merchantName || "-"}</td>
-          <td class="mono">${item.extracted.transactionOrderNo || "-"}</td>
-          <td class="mono">${formatCurrency(item.extracted.amount)}</td>
-          <td>${item.extracted.transactionTime || "-"}</td>
-          <td class="${statusLabelClass}">${statusValue}</td>
-          <td>${item.extracted.paymentMethod || "-"}</td>
-        </tr>
-      `;
-    })
-    .join("");
-
-  detailList.innerHTML = `
-    <section class="card detail-card compact-card">
+    card.innerHTML = `
       <div class="section-header">
-        <h3>交易明細</h3>
-        <span class="pill">${payload.items?.length || 0} 筆</span>
+        <h3>交易明細 ${index + 1}</h3>
+        <span class="pill">${formatCurrency(item.extracted.amount)}</span>
       </div>
-      <div class="table-wrapper">
-        <table class="owner-table customer-detail-table">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>圖片</th>
-              <th>商戶</th>
-              <th>訂單號</th>
-              <th>金額</th>
-              <th>時間</th>
-              <th>狀態</th>
-              <th>支付方式</th>
-            </tr>
-          </thead>
-          <tbody>${rows || `<tr><td colspan="8"><div class="empty-state">未有明細資料。</div></td></tr>`}</tbody>
-        </table>
-      </div>
-    </section>
-  `;
+      <p class="detail-note">辨識信心：${confidence}</p>
+      <p class="detail-note">金額判定：${item.extracted.amountReason || "未提供"}</p>
+    `;
 
-  detailList.querySelectorAll(".analysis-thumb").forEach((button) => {
-    button.addEventListener("click", () => showImageDialog(button.dataset.src, button.dataset.alt || "交易圖片"));
+    const table = document.createElement("table");
+    const tbody = document.createElement("tbody");
+    tbody.append(
+      createDetailRow("商戶名稱", item.extracted.merchantName),
+      createDetailRow("原交易訂單號", item.extracted.transactionOrderNo),
+      createDetailRow("交易金額", item.extracted.amount),
+      createDetailRow("實際交易時間", item.extracted.transactionTime),
+      createDetailRow("訂單狀態", statusValue, statusClass),
+      createDetailRow("支付方式", item.extracted.paymentMethod)
+    );
+    table.appendChild(tbody);
+
+    card.appendChild(table);
+    detailList.appendChild(card);
   });
 }
 
@@ -572,7 +551,7 @@ async function logoutCustomer() {
   resetResults();
   renderSelectedFiles();
   renderCustomerSession();
-  customerTransactionTableBody.innerHTML = "";
+  customerTransactionList.innerHTML = "";
   showStatus("已登出", "info");
 }
 

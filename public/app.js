@@ -16,7 +16,6 @@ const state = {
 const fileInput = document.getElementById("fileInput");
 const shopSelect = document.getElementById("shopSelect");
 const shopSelectWrapper = document.getElementById("shopSelectWrapper");
-const assignedShopLabel = document.getElementById("assignedShopLabel");
 const memberCodeInput = document.getElementById("memberCodeInput");
 const customerPasswordInput = document.getElementById("customerPasswordInput");
 const customerLoginButton = document.getElementById("customerLoginButton");
@@ -28,11 +27,8 @@ const ownerModeButton = document.getElementById("ownerModeButton");
 const customerLoginPane = document.getElementById("customerLoginPane");
 const ownerLoginPane = document.getElementById("ownerLoginPane");
 const customerLoginCard = document.getElementById("customerLoginCard");
-const customerInfoCard = document.getElementById("customerInfoCard");
 const customerPortal = document.getElementById("customerPortal");
 const authBootCard = document.getElementById("authBootCard");
-const customerLogoutButton = document.getElementById("customerLogoutButton");
-const currentMemberBadge = document.getElementById("currentMemberBadge");
 const confirmResultButton = document.getElementById("confirmResultButton");
 const submitStatusCard = document.getElementById("submitStatusCard");
 const introCard = document.getElementById("introCard");
@@ -48,7 +44,6 @@ const statusBanner = document.getElementById("statusBanner");
 const imageDialog = document.getElementById("imageDialog");
 const dialogImage = document.getElementById("dialogImage");
 const closeDialogButton = document.getElementById("closeDialogButton");
-const customerTransactionsCard = document.getElementById("customerTransactionsCard");
 const refreshCustomerTransactionsButton = document.getElementById("refreshCustomerTransactionsButton");
 const customerTransactionList = document.getElementById("customerTransactionList");
 const customerDetailDialog = document.getElementById("customerDetailDialog");
@@ -56,6 +51,12 @@ const customerDetailContent = document.getElementById("customerDetailContent");
 const closeCustomerDetailButton = document.getElementById("closeCustomerDetailButton");
 const defaultConfirmButtonText = confirmResultButton.textContent;
 const customerBottomBar = document.getElementById("customerBottomBar");
+const customerMenuButton = document.getElementById("customerMenuButton");
+const customerMenuDialog = document.getElementById("customerMenuDialog");
+const closeCustomerMenuButton = document.getElementById("closeCustomerMenuButton");
+const customerAccountSection = document.getElementById("customerAccountSection");
+const customerAccountLine = document.getElementById("customerAccountLine");
+const customerMenuLogoutButton = document.getElementById("customerMenuLogoutButton");
 
 function formatCurrency(value) {
   return `MOP ${Number(value || 0).toFixed(2)}`;
@@ -325,27 +326,26 @@ function renderCustomerSession() {
   const isLoggedIn = state.user?.role === "customer";
   if (state.authBooting) {
     customerLoginCard.classList.add("hidden");
-    customerInfoCard.classList.add("hidden");
     customerPortal.classList.add("hidden");
     return;
   }
   customerLoginCard.classList.toggle("hidden", isLoggedIn);
-  customerInfoCard.classList.toggle("hidden", !isLoggedIn);
   customerPortal.classList.toggle("hidden", !isLoggedIn);
-  customerTransactionsCard.classList.toggle("hidden", !isLoggedIn);
+  customerMenuButton.classList.toggle("hidden", !isLoggedIn);
 
   if (!isLoggedIn) {
-    currentMemberBadge.textContent = "未登入";
     return;
   }
 
-  currentMemberBadge.textContent =
-    state.user.authSource === "membership"
-      ? `會員 ${state.user.memberCode} · 主系統登入`
-      : `會員 ${state.user.memberCode}`;
   renderShopOptions();
-  assignedShopLabel.textContent = getActiveShopName();
   shopSelectWrapper.classList.toggle("hidden", shouldUseAssignedShopOnly());
+
+  const isMembership = state.user?.authSource === "membership";
+  customerAccountSection.classList.toggle("hidden", isMembership);
+  if (!isMembership) {
+    const phone = state.user?.phone ? String(state.user.phone) : "-";
+    customerAccountLine.textContent = `會員 ${state.user?.memberCode || "-"} · ${phone}`;
+  }
 }
 
 function extractMembershipToken() {
@@ -653,6 +653,7 @@ function openPicker() {
     showError("請先登入客戶帳號");
     return;
   }
+  fileInput.value = "";
   fileInput.click();
 }
 
@@ -821,7 +822,6 @@ shopSelect.addEventListener("change", async () => {
   if (state.user?.role === "customer") {
     const selectedShop = state.shops.find((shop) => shop.id === shopSelect.value);
     if (selectedShop) {
-      assignedShopLabel.textContent = selectedShop.name;
       showStatus(`已選擇店舖：${selectedShop.name}`, "info");
     }
   }
@@ -830,7 +830,6 @@ shopSelect.addEventListener("change", async () => {
 
 customerLoginButton.addEventListener("click", () => loginCustomer());
 ownerLoginButton.addEventListener("click", loginOwnerFromMain);
-customerLogoutButton.addEventListener("click", logoutCustomer);
 confirmResultButton.addEventListener("click", submitForApproval);
 
 introCard.addEventListener("click", openPicker);
@@ -847,17 +846,31 @@ ownerModeButton.addEventListener("click", () => {
   renderAuthMode();
 });
 
+customerMenuButton.addEventListener("click", async () => {
+  if (state.user?.role !== "customer") return;
+  await loadCustomerTransactions();
+  customerMenuDialog.showModal();
+});
+
+closeCustomerMenuButton.addEventListener("click", () => customerMenuDialog.close());
+
+customerMenuLogoutButton.addEventListener("click", async () => {
+  await logoutCustomer();
+  customerMenuDialog.close();
+});
+
 fileInput.addEventListener("change", async (event) => {
   resetError();
   const files = Array.from(event.target.files || []);
   if (!files.length) return;
-  if (files.length > 10) {
+  if (state.selectedFiles.length + files.length > 10) {
     showError("一次最多只可選擇 10 張圖片。");
     fileInput.value = "";
     return;
   }
 
-  state.selectedFiles = await optimizeSelectedFiles(files);
+  const optimized = await optimizeSelectedFiles(files);
+  state.selectedFiles = [...state.selectedFiles, ...optimized];
   resetResults();
   renderSelectedFiles();
   // Auto-run analysis after selecting images (mobile-friendly flow)

@@ -8,10 +8,18 @@
   </head>
   <body class="customer-page auth-booting">
     <div class="page compact-page">
-      <header class="hero hero-compact">
+      <header class="hero hero-compact customer-hero">
         <div>
           <h1>充值上傳</h1>
           <p class="subtitle">上傳截圖並送交店主審核。</p>
+        </div>
+        <div class="customer-hero-actions">
+          <label id="shopSelectWrapper" class="shop-picker hidden">
+            <select id="shopSelect" class="text-input"></select>
+          </label>
+          <button id="customerMenuButton" class="icon-button hidden" type="button" aria-label="帳戶與紀錄">
+            ☰
+          </button>
         </div>
       </header>
 
@@ -53,29 +61,7 @@
         </div>
       </section>
 
-      <section id="customerInfoCard" class="card hidden">
-        <div class="session-bar">
-          <div class="session-info">
-            <span id="currentMemberBadge" class="pill subtle-pill">未登入</span>
-          </div>
-          <button id="customerLogoutButton" class="secondary-button" type="button">登出</button>
-        </div>
-      </section>
-
       <main id="customerPortal" class="hidden">
-        <section class="card portal-toolbar">
-          <div class="header-tools">
-            <div class="shop-picker shop-fixed">
-              <span>充值店舖</span>
-              <strong id="assignedShopLabel">未指定店舖</strong>
-            </div>
-            <label id="shopSelectWrapper" class="shop-picker hidden">
-              <span>選擇充值店舖</span>
-              <select id="shopSelect"></select>
-            </label>
-          </div>
-        </section>
-
         <section id="introCard" class="card upload-card">
           <div class="upload-icon">＋</div>
           <h2>選擇交易截圖</h2>
@@ -107,13 +93,6 @@
           <div id="detailList" class="detail-list"></div>
         </section>
 
-        <section id="customerTransactionsCard" class="card hidden">
-          <div class="section-header">
-            <h2>交易紀錄</h2>
-            <button id="refreshCustomerTransactionsButton" class="secondary-button" type="button">重新整理</button>
-          </div>
-          <div id="customerTransactionList" class="transaction-list"></div>
-        </section>
       </main>
     </div>
 
@@ -127,6 +106,25 @@
     <dialog id="customerDetailDialog" class="image-dialog detail-dialog">
       <button id="closeCustomerDetailButton" class="dialog-close" type="button">關閉</button>
       <div id="customerDetailContent" class="owner-detail-content"></div>
+    </dialog>
+
+    <dialog id="customerMenuDialog" class="image-dialog menu-dialog">
+      <button id="closeCustomerMenuButton" class="dialog-close" type="button">關閉</button>
+      <div class="section-header" style="margin-top: 6px;">
+        <h2>帳戶</h2>
+      </div>
+      <section id="customerAccountSection" class="card compact-card" style="margin-top: 12px;">
+        <div class="owner-item-grid">
+          <span id="customerAccountLine">-</span>
+        </div>
+        <button id="customerMenuLogoutButton" class="link-danger" type="button">登出</button>
+      </section>
+
+      <div class="section-header" style="margin-top: 16px;">
+        <h2>交易紀錄</h2>
+        <button id="refreshCustomerTransactionsButton" class="secondary-button" type="button">重新整理</button>
+      </div>
+      <div id="customerTransactionList" class="transaction-list" style="margin-top: 12px;"></div>
     </dialog>
 
     <div id="customerBottomBar" class="bottom-bar hidden">

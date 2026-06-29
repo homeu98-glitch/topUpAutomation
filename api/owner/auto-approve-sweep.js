@@ -19,7 +19,7 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: "請先以店主身份登入" });
     }
 
-    const result = await runAutoApprovalSweep({ shopId: session.shopId });
+    const result = await runAutoApprovalSweep({ shopId: session.shopId, forceAll: true });
     return res.status(200).json({ ok: true, ...result });
   } catch (error) {
     return res.status(500).json({
@@ -27,4 +27,3 @@ export default async function handler(req, res) {
     });
   }
 }
-

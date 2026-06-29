@@ -17,10 +17,6 @@
           <div id="ownerHeaderSession" class="header-session hidden">
             <span id="ownerShopBadge" class="pill">未登入</span>
             <span id="ownerLoginBadge" class="pill subtle-pill">-</span>
-            <button id="pendingNotificationButton" class="notification-button" type="button" aria-label="待審核通知">
-              <span class="notification-icon">🔔</span>
-              <span id="pendingNotificationBadge" class="notification-badge hidden">0</span>
-            </button>
             <button id="autoApproveButton" class="secondary-button" type="button">設定自動核准</button>
             <button id="ownerLogoutButton" class="secondary-button" type="button">登出</button>
           </div>
@@ -55,7 +51,10 @@
         <section class="card">
           <div class="list-toolbar">
             <div class="tab-bar">
-              <button id="pendingTabButton" class="tab-button active" type="button">待審核</button>
+              <button id="pendingTabButton" class="tab-button active" type="button">
+                待審核
+                <span id="pendingTabBadge" class="notification-badge hidden">0</span>
+              </button>
               <button id="historyTabButton" class="tab-button" type="button">歷史紀錄</button>
             </div>
             <div class="owner-toolbar-actions">

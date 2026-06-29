@@ -18,10 +18,12 @@ const state = {
   searchTerm: "",
   pendingCount: 0,
   isLoadingOwnerData: false,
+  autoApproveRemainingSeconds: 0,
 };
 const OWNER_POLL_INTERVAL_MS = 3000;
 let ownerPollTimer = null;
 let statusHideTimer = null;
+let autoApproveCountdownTimer = null;
 
 const ownerStatusBanner = document.getElementById("ownerStatusBanner");
 const ownerErrorCard = document.getElementById("ownerErrorCard");
@@ -34,8 +36,7 @@ const ownerPasswordInput = document.getElementById("ownerPasswordInput");
 const ownerLoginButton = document.getElementById("ownerLoginButton");
 const ownerLogoutButton = document.getElementById("ownerLogoutButton");
 const autoApproveButton = document.getElementById("autoApproveButton");
-const pendingNotificationButton = document.getElementById("pendingNotificationButton");
-const pendingNotificationBadge = document.getElementById("pendingNotificationBadge");
+const pendingTabBadge = document.getElementById("pendingTabBadge");
 const ownerShopBadge = document.getElementById("ownerShopBadge");
 const ownerLoginBadge = document.getElementById("ownerLoginBadge");
 const customerSearchInput = document.getElementById("customerSearchInput");
@@ -262,16 +263,55 @@ function renderOwnerSession() {
   ownerShopBadge.textContent = state.user.shopName || "未命名店舖";
   ownerLoginBadge.textContent = state.user.ownerLogin || "-";
   autoApproveButton.textContent = state.autoApproveEnabled
-    ? `自動核准中（${state.autoApproveIntervalSeconds} 秒）`
+    ? `自動核准中（${Math.max(0, state.autoApproveRemainingSeconds || state.autoApproveIntervalSeconds)} 秒）`
     : "設定自動核准";
-  pendingNotificationBadge.textContent = String(state.pendingCount || 0);
-  pendingNotificationBadge.classList.toggle("hidden", !state.pendingCount);
+  pendingTabBadge.textContent = String(state.pendingCount || 0);
+  pendingTabBadge.classList.toggle("hidden", !state.pendingCount);
 }
 
 function syncAutoApproveDialog() {
   autoApproveStateBadge.textContent = state.autoApproveEnabled ? "已啟用" : "未啟用";
   autoApproveIntervalInput.value = String(state.autoApproveIntervalSeconds || 300);
   disableAutoApproveButton.classList.toggle("hidden", !state.autoApproveEnabled);
+}
+
+function stopAutoApproveCountdown() {
+  if (autoApproveCountdownTimer) {
+    clearInterval(autoApproveCountdownTimer);
+    autoApproveCountdownTimer = null;
+  }
+}
+
+function resetAutoApproveCountdown() {
+  state.autoApproveRemainingSeconds = Math.max(1, Number(state.autoApproveIntervalSeconds) || 300);
+  renderOwnerSession();
+}
+
+function startAutoApproveCountdown() {
+  stopAutoApproveCountdown();
+  if (state.user?.role !== "owner" || !state.autoApproveEnabled) return;
+  if (!state.autoApproveRemainingSeconds || state.autoApproveRemainingSeconds > state.autoApproveIntervalSeconds) {
+    resetAutoApproveCountdown();
+  }
+
+  autoApproveCountdownTimer = setInterval(async () => {
+    if (document.hidden || state.isLoadingOwnerData) return;
+    state.autoApproveRemainingSeconds = Math.max(0, state.autoApproveRemainingSeconds - 1);
+    renderOwnerSession();
+
+    if (state.autoApproveRemainingSeconds > 0) return;
+
+    stopAutoApproveCountdown();
+    const ok = await loadOwnerData({
+      showOverlay: true,
+      loadingText: "自動核准中，正在刷新資料...",
+      runAutoApprove: true,
+    });
+    if (ok && state.autoApproveEnabled) {
+      resetAutoApproveCountdown();
+      startAutoApproveCountdown();
+    }
+  }, 1000);
 }
 
 function renderDashboard(stats) {
@@ -498,6 +538,12 @@ async function loadOwnerData(options = {}) {
     state.pendingCount = pendingPayload.total || 0;
     state.autoApproveEnabled = Boolean(settingsPayload.settings?.auto_approve_enabled);
     state.autoApproveIntervalSeconds = Number(settingsPayload.settings?.auto_approve_interval_minutes || 300);
+    if (!state.autoApproveEnabled) {
+      state.autoApproveRemainingSeconds = 0;
+      stopAutoApproveCountdown();
+    } else if (!state.autoApproveRemainingSeconds || state.autoApproveRemainingSeconds > state.autoApproveIntervalSeconds) {
+      resetAutoApproveCountdown();
+    }
     syncAutoApproveDialog();
     renderOwnerSession();
     renderTransactions(state.transactions);
@@ -529,7 +575,7 @@ function startOwnerPolling() {
   if (state.user?.role !== "owner") return;
   ownerPollTimer = setInterval(async () => {
     if (document.hidden || state.isLoadingOwnerData) return;
-    await loadOwnerData({ runAutoApprove: true });
+    await loadOwnerData();
   }, OWNER_POLL_INTERVAL_MS);
 }
 
@@ -581,6 +627,7 @@ async function loginOwner() {
     renderOwnerSession();
     hideStatus();
     await loadOwnerData({ showOverlay: true, loadingText: "正在載入店舖資料..." });
+    startAutoApproveCountdown();
     startOwnerPolling();
   } catch (error) {
     showError(error instanceof Error ? error.message : "登入失敗");
@@ -591,11 +638,13 @@ async function loginOwner() {
 
 async function logoutOwner() {
   stopOwnerPolling();
+  stopAutoApproveCountdown();
   await apiFetch("/api/auth/logout", { method: "POST" });
   state.user = null;
   state.searchTerm = "";
   customerSearchInput.value = "";
   state.pendingCount = 0;
+  state.autoApproveRemainingSeconds = 0;
   renderOwnerSession();
   transactionTableBody.innerHTML = "";
   dashboardCards.innerHTML = "";
@@ -613,6 +662,7 @@ async function loadSession() {
   renderOwnerSession();
   if (state.user?.role === "owner") {
     await loadOwnerData({ showOverlay: true, loadingText: "正在載入店舖資料..." });
+    startAutoApproveCountdown();
     startOwnerPolling();
   }
 }
@@ -633,6 +683,7 @@ async function loginOwnerFromMembershipToken(token) {
     renderOwnerSession();
     hideStatus();
     await loadOwnerData({ showOverlay: true, loadingText: "正在載入店舖資料..." });
+    startAutoApproveCountdown();
     startOwnerPolling();
   } catch (error) {
     showError(error instanceof Error ? error.message : "主系統登入失敗");
@@ -743,8 +794,14 @@ async function updateAutoApproveSettings(autoApproveEnabled) {
     });
     state.autoApproveEnabled = autoApproveEnabled;
     state.autoApproveIntervalSeconds = intervalSeconds;
+    state.autoApproveRemainingSeconds = autoApproveEnabled ? intervalSeconds : 0;
     syncAutoApproveDialog();
     renderOwnerSession();
+    if (autoApproveEnabled) {
+      startAutoApproveCountdown();
+    } else {
+      stopAutoApproveCountdown();
+    }
     showStatus(autoApproveEnabled ? `已開啟自動核准，間隔 ${intervalSeconds} 秒` : "已關閉自動核准", 2200);
     if (!autoApproveEnabled) {
       autoApproveDialog.close();
@@ -774,14 +831,6 @@ ownerLoginButton.addEventListener("click", loginOwner);
 ownerLogoutButton.addEventListener("click", logoutOwner);
 refreshDashboardButton.addEventListener("click", async () => {
   await loadOwnerData({ showOverlay: true, loadingText: "正在刷新資料...", showRefreshStatus: true, runAutoApprove: true });
-});
-pendingNotificationButton.addEventListener("click", async () => {
-  state.mode = "pending";
-  state.page = 1;
-  state.selectedIds.clear();
-  pendingTabButton.classList.add("active");
-  historyTabButton.classList.remove("active");
-  await loadOwnerData({ showOverlay: true, loadingText: "正在打開待審核資料...", showRefreshStatus: true });
 });
 ownerCloseDialogButton.addEventListener("click", () => ownerImageDialog.close());
 ownerCloseDetailButton.addEventListener("click", () => ownerDetailDialog.close());
@@ -835,5 +884,5 @@ window.addEventListener("load", async () => {
 
 document.addEventListener("visibilitychange", async () => {
   if (document.hidden || state.user?.role !== "owner") return;
-  await loadOwnerData({ runAutoApprove: true });
+  await loadOwnerData();
 });

@@ -678,6 +678,20 @@ th {
   vertical-align: middle;
 }
 
+.customer-detail-table th,
+.customer-detail-table td {
+  white-space: nowrap;
+}
+
+.customer-detail-table .reason-cell {
+  max-width: 360px;
+  white-space: normal;
+}
+
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+}
+
 .thumb-list {
   gap: 8px;
 }

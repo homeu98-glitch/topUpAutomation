@@ -392,34 +392,73 @@ function renderResults(payload) {
   detailList.innerHTML = "";
   setConfirmState(false);
 
-  payload.items.forEach((item, index) => {
-    const card = document.createElement("section");
-    card.className = "card detail-card compact-card";
+  const rows = payload.items
+    .map((item, index) => {
+      const statusValue = item.extracted.orderStatus || "未能辨識";
+      const statusLabelClass = statusValue === "交易成功" ? "status-success" : "status-unknown";
+      const confidence =
+        typeof item.extracted.confidence === "number" ? `${Math.round(item.extracted.confidence * 100)}%` : "-";
+      const reason = item.extracted.amountReason || "-";
 
-    const statusValue = item.extracted.orderStatus || "未能辨識";
-    const statusClass = statusValue === "交易成功" ? "status-success" : "status-unknown";
-    const table = document.createElement("table");
-    const tbody = document.createElement("tbody");
-    tbody.append(
-      createDetailRow("商戶名稱", item.extracted.merchantName),
-      createDetailRow("原交易訂單號", item.extracted.transactionOrderNo),
-      createDetailRow("交易金額", item.extracted.amount),
-      createDetailRow("實際交易時間", item.extracted.transactionTime),
-      createDetailRow("訂單狀態", statusValue, statusClass),
-      createDetailRow("支付方式", item.extracted.paymentMethod)
-    );
-    table.appendChild(tbody);
+      const fallbackPreviewUrl =
+        state.selectedFiles?.[index] instanceof File ? URL.createObjectURL(state.selectedFiles[index]) : "";
+      const previewUrl = item.previewUrl || fallbackPreviewUrl;
 
-    card.innerHTML = `
+      return `
+        <tr>
+          <td>${index + 1}</td>
+          <td>
+            ${
+              previewUrl
+                ? `<button class="thumb-button analysis-thumb" type="button" data-src="${previewUrl}" data-alt="交易明細 ${index + 1}">
+                    <img src="${previewUrl}" alt="交易明細 ${index + 1}" />
+                  </button>`
+                : "-"
+            }
+          </td>
+          <td>${item.extracted.merchantName || "-"}</td>
+          <td class="mono">${item.extracted.transactionOrderNo || "-"}</td>
+          <td class="mono">${formatCurrency(item.extracted.amount)}</td>
+          <td>${item.extracted.transactionTime || "-"}</td>
+          <td class="${statusLabelClass}">${statusValue}</td>
+          <td>${item.extracted.paymentMethod || "-"}</td>
+          <td>${confidence}</td>
+          <td class="reason-cell">${reason}</td>
+        </tr>
+      `;
+    })
+    .join("");
+
+  detailList.innerHTML = `
+    <section class="card detail-card compact-card">
       <div class="section-header">
-        <h3>交易明細 ${index + 1}</h3>
-        <span class="pill">${formatCurrency(item.extracted.amount)}</span>
+        <h3>交易明細</h3>
+        <span class="pill">${payload.items?.length || 0} 筆</span>
       </div>
-      <p class="detail-note">辨識信心：${typeof item.extracted.confidence === "number" ? `${Math.round(item.extracted.confidence * 100)}%` : "未提供"}</p>
-      <p class="detail-note">金額判定：${item.extracted.amountReason || "取候選金額中的最大值"}</p>
-    `;
-    card.appendChild(table);
-    detailList.appendChild(card);
+      <div class="table-wrapper">
+        <table class="owner-table customer-detail-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>圖片</th>
+              <th>商戶</th>
+              <th>訂單號</th>
+              <th>金額</th>
+              <th>時間</th>
+              <th>狀態</th>
+              <th>支付方式</th>
+              <th>信心</th>
+              <th>金額判定</th>
+            </tr>
+          </thead>
+          <tbody>${rows || `<tr><td colspan="10"><div class="empty-state">未有明細資料。</div></td></tr>`}</tbody>
+        </table>
+      </div>
+    </section>
+  `;
+
+  detailList.querySelectorAll(".analysis-thumb").forEach((button) => {
+    button.addEventListener("click", () => showImageDialog(button.dataset.src, button.dataset.alt || "交易圖片"));
   });
 }
 

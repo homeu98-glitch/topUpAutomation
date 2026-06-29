@@ -148,7 +148,7 @@ function showDetailDialog(transaction) {
                 <span>時間：${item?.extracted?.transactionTime || "-"}</span>
                 <span>狀態：${item?.extracted?.orderStatus || "-"}</span>
                 <span>支付方式：${item?.extracted?.paymentMethod || "-"}</span>
-                ${item?.validation?.isShopMismatch ? `<span class="warning-text">商戶名稱與店舖不符，系統已自動拒絕</span>` : ""}
+                ${item?.validation?.isShopMismatch ? `<span class="warning-text">商戶名稱與店舖名稱不完全一致，請人工確認</span>` : ""}
                 ${item?.validation?.isAbnormal ? `<span class="warning-text">aborormal：缺少 ${item.validation.missingKeys?.join("、") || "關鍵資料"}</span>` : ""}
               </div>
             </section>

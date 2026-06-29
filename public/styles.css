@@ -680,16 +680,21 @@ th {
 
 .customer-detail-table th,
 .customer-detail-table td {
-  white-space: nowrap;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
-.customer-detail-table .reason-cell {
-  max-width: 360px;
-  white-space: normal;
+.customer-detail-table {
+  table-layout: fixed;
 }
 
 .mono {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+}
+
+.customer-detail-table .mono {
+  white-space: normal;
 }
 
 .thumb-list {

@@ -396,9 +396,6 @@ function renderResults(payload) {
     .map((item, index) => {
       const statusValue = item.extracted.orderStatus || "未能辨識";
       const statusLabelClass = statusValue === "交易成功" ? "status-success" : "status-unknown";
-      const confidence =
-        typeof item.extracted.confidence === "number" ? `${Math.round(item.extracted.confidence * 100)}%` : "-";
-      const reason = item.extracted.amountReason || "-";
 
       const fallbackPreviewUrl =
         state.selectedFiles?.[index] instanceof File ? URL.createObjectURL(state.selectedFiles[index]) : "";
@@ -422,8 +419,6 @@ function renderResults(payload) {
           <td>${item.extracted.transactionTime || "-"}</td>
           <td class="${statusLabelClass}">${statusValue}</td>
           <td>${item.extracted.paymentMethod || "-"}</td>
-          <td>${confidence}</td>
-          <td class="reason-cell">${reason}</td>
         </tr>
       `;
     })
@@ -447,11 +442,9 @@ function renderResults(payload) {
               <th>時間</th>
               <th>狀態</th>
               <th>支付方式</th>
-              <th>信心</th>
-              <th>金額判定</th>
             </tr>
           </thead>
-          <tbody>${rows || `<tr><td colspan="10"><div class="empty-state">未有明細資料。</div></td></tr>`}</tbody>
+          <tbody>${rows || `<tr><td colspan="8"><div class="empty-state">未有明細資料。</div></td></tr>`}</tbody>
         </table>
       </div>
     </section>

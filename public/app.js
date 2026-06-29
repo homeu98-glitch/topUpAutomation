@@ -187,33 +187,48 @@ function renderCustomerTransactions(transactions) {
         transaction.status === "approved" ? "已核准" : transaction.status === "rejected" ? "已拒絕" : "待審核";
       const statusClass =
         transaction.status === "approved" ? "approved-pill" : transaction.status === "rejected" ? "rejected-pill" : "";
-      const shopName = state.user?.shopName || "-";
+      const shopName = transaction?.shops?.name || transaction?.shop_name || "-";
       return `
-        <article class="transaction-card">
+        <article class="transaction-card customer-history-card">
           <div class="transaction-head">
             <div>
-              <div class="summary-label">${formatDateTime(transaction.submitted_at)}</div>
-              <div style="margin-top: 4px;"><strong>${shopName}</strong></div>
+              <div class="summary-label">提交時間</div>
+              <div class="history-date">${formatDateTime(transaction.submitted_at)}</div>
             </div>
             <span class="pill ${statusClass}">${statusLabel}</span>
           </div>
-          <div class="transaction-summary">
-            <span>圖片數：${transaction.item_count}</span>
-            <span>總額：${formatCurrency(transaction.total_amount)}</span>
+          <div class="history-meta-grid">
+            <div class="history-meta-card">
+              <div class="summary-label">店舖</div>
+              <div class="history-meta-value">${shopName}</div>
+            </div>
+            <div class="history-meta-card">
+              <div class="summary-label">圖片數</div>
+              <div class="history-meta-value">${transaction.item_count}</div>
+            </div>
+            <div class="history-meta-card">
+              <div class="summary-label">最終總額</div>
+              <div class="history-meta-value emphasized">${formatCurrency(transaction.total_amount)}</div>
+            </div>
           </div>
-          <div class="thumb-list" style="margin-top: 12px;">
+          <div class="history-item-list">
             ${(transaction.items || [])
-              .slice(0, 6)
               .map(
                 (item, index) => `
-                  <button class="thumb-button" type="button" data-src="${item.previewUrl}" data-alt="交易明細 ${index + 1}">
-                    <img src="${item.previewUrl}" alt="交易明細 ${index + 1}" />
-                  </button>
+                  <div class="history-item-row">
+                    <button class="thumb-button" type="button" data-src="${item.previewUrl}" data-alt="交易明細 ${index + 1}">
+                      <img src="${item.previewUrl}" alt="交易明細 ${index + 1}" />
+                    </button>
+                    <div class="history-item-info">
+                      <div class="summary-label">圖片 ${index + 1}</div>
+                      <div class="history-item-amount">${formatCurrency(item?.manualAmount || item?.extracted?.amount)}</div>
+                    </div>
+                  </div>
                 `
               )
               .join("")}
           </div>
-          <div class="transaction-actions" style="margin-top: 12px;">
+          <div class="transaction-actions history-actions">
             <button class="secondary-button detail-button" data-id="${transaction.id}" type="button">明細</button>
           </div>
         </article>
@@ -574,7 +589,7 @@ async function loadShops() {
 async function loadCustomerTransactions() {
   if (state.user?.role !== "customer") return;
   try {
-    const payload = await apiFetch(`/api/customer/transactions?shopId=${encodeURIComponent(getActiveShopId())}`);
+    const payload = await apiFetch(`/api/customer/transactions?pageSize=100`);
     state.customerTransactions = payload.rows || [];
     renderCustomerTransactions(state.customerTransactions);
   } catch {

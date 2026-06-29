@@ -20,7 +20,7 @@ export default async function handler(req, res) {
     }
 
     const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
-    const shopId = url.searchParams.get("shopId") || session.shopId || "";
+    const shopId = url.searchParams.get("shopId") || "";
     const page = url.searchParams.get("page") || "1";
     const pageSize = url.searchParams.get("pageSize") || "50";
 
@@ -38,4 +38,3 @@ export default async function handler(req, res) {
     });
   }
 }
-

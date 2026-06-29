@@ -676,6 +676,12 @@ th {
   background: #fff;
 }
 
+.customer-history-card {
+  padding: 16px;
+  border-radius: 20px;
+  box-shadow: 0 8px 20px rgba(32, 33, 36, 0.05);
+}
+
 .transaction-head,
 .transaction-actions,
 .transaction-summary,
@@ -690,6 +696,65 @@ th {
   color: var(--subtle);
   margin-top: 12px;
   flex-wrap: wrap;
+}
+
+.history-date {
+  margin-top: 4px;
+  font-weight: 700;
+}
+
+.history-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.history-meta-card {
+  border: 1px solid #edf1f7;
+  border-radius: 14px;
+  padding: 12px;
+  background: #f8fbff;
+}
+
+.history-meta-value {
+  margin-top: 6px;
+  font-weight: 700;
+  word-break: break-word;
+}
+
+.history-meta-value.emphasized {
+  color: #174ea6;
+}
+
+.history-item-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.history-item-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid #edf1f7;
+  border-radius: 14px;
+  padding: 10px;
+  background: #fff;
+}
+
+.history-item-info {
+  min-width: 0;
+}
+
+.history-item-amount {
+  margin-top: 4px;
+  font-weight: 800;
+  color: #174ea6;
+}
+
+.history-actions {
+  margin-top: 14px;
 }
 
 .owner-items {

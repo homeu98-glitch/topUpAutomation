@@ -33,6 +33,7 @@ const confirmResultButton = document.getElementById("confirmResultButton");
 const submitStatusCard = document.getElementById("submitStatusCard");
 const introCard = document.getElementById("introCard");
 const selectedCard = document.getElementById("selectedCard");
+const clearAllImagesButton = document.getElementById("clearAllImagesButton");
 const selectedPreviewList = document.getElementById("selectedPreviewList");
 const selectionCount = document.getElementById("selectionCount");
 const loadingCard = document.getElementById("loadingCard");
@@ -413,8 +414,15 @@ function renderSelectedFiles() {
     removeButton.addEventListener("click", (event) => {
       event.stopPropagation();
       state.selectedFiles = state.selectedFiles.filter((_, fileIndex) => fileIndex !== index);
+      if (state.analyzedPayload?.items) {
+        state.analyzedPayload.items = state.analyzedPayload.items.filter((_, itemIndex) => itemIndex !== index);
+      }
       fileInput.value = "";
-      resetResults();
+      if (!state.selectedFiles.length) {
+        resetResults();
+      } else if (state.analyzedPayload?.items?.length) {
+        renderResults(state.analyzedPayload);
+      }
       renderSelectedFiles();
     });
 
@@ -425,6 +433,20 @@ function renderSelectedFiles() {
     item.append(previewButton, badge, removeButton, body);
     selectedPreviewList.appendChild(item);
   });
+}
+
+function mergeAnalyzedPayload(existingPayload, newPayload) {
+  if (!existingPayload) return newPayload;
+
+  const merged = {
+    ...existingPayload,
+    ...newPayload,
+    items: [...(existingPayload.items || []), ...(newPayload.items || [])],
+  };
+  merged.totalAmount = merged.items
+    .reduce((sum, item, index) => sum + Number(getSelectedAmount(index, item?.extracted?.amount) || 0), 0)
+    .toFixed(2);
+  return merged;
 }
 
 function renderResults(payload) {
@@ -657,32 +679,33 @@ function openPicker() {
   fileInput.click();
 }
 
-async function analyzeFiles() {
+async function analyzeFiles(filesToAnalyze = state.selectedFiles, options = {}) {
+  const { append = false } = options;
   resetError();
   submitStatusCard.classList.add("hidden");
 
-  if (!state.selectedFiles.length) {
+  if (!filesToAnalyze.length) {
     showError("請先選擇至少一張圖片。");
-    return;
+    return false;
   }
 
   if (!getActiveShopId() || getActiveShopId() === "fallback-shop") {
     showError("請先選擇有效店舖。");
-    return;
+    return false;
   }
 
   setUploadingState(true);
   const ready = await checkBackendAvailability(true);
   if (!ready) {
     setUploadingState(false);
-    return;
+    return false;
   }
 
   setUploadingState(true);
 
   try {
     const formData = new FormData();
-    state.selectedFiles.forEach((file) => formData.append("images", file));
+    filesToAnalyze.forEach((file) => formData.append("images", file));
     if (state.user?.memberCode) {
       formData.append("memberCode", state.user.memberCode);
     }
@@ -695,13 +718,14 @@ async function analyzeFiles() {
     const payload = await parseApiResponse(response);
     if (!response.ok) throw new Error(payload.error || "辨識失敗");
     if (payload.hasDuplicates) {
-      resetResults();
       showError("duplicated record, please reupload.");
-      return;
+      return false;
     }
-    renderResults(payload);
+    renderResults(append ? mergeAnalyzedPayload(state.analyzedPayload, payload) : payload);
+    return true;
   } catch (error) {
     showError(error instanceof Error ? error.message : "系統錯誤，請稍後再試。");
+    return false;
   } finally {
     setUploadingState(false);
   }
@@ -834,7 +858,12 @@ confirmResultButton.addEventListener("click", submitForApproval);
 
 introCard.addEventListener("click", openPicker);
 selectedCard.addEventListener("click", (event) => {
-  if (event.target.closest(".selected-item-button") || event.target.closest(".selected-item-remove")) return;
+  if (
+    event.target.closest(".selected-item-button") ||
+    event.target.closest(".selected-item-remove") ||
+    event.target.closest("#clearAllImagesButton")
+  )
+    return;
   openPicker();
 });
 customerModeButton.addEventListener("click", () => {
@@ -870,11 +899,25 @@ fileInput.addEventListener("change", async (event) => {
   }
 
   const optimized = await optimizeSelectedFiles(files);
+  const shouldAppend = Boolean(state.analyzedPayload?.items?.length);
   state.selectedFiles = [...state.selectedFiles, ...optimized];
-  resetResults();
   renderSelectedFiles();
   // Auto-run analysis after selecting images (mobile-friendly flow)
-  setTimeout(() => analyzeFiles(), 150);
+  setTimeout(async () => {
+    const ok = await analyzeFiles(optimized, { append: shouldAppend });
+    if (!ok) {
+      state.selectedFiles = state.selectedFiles.slice(0, Math.max(0, state.selectedFiles.length - optimized.length));
+      renderSelectedFiles();
+      if (!state.selectedFiles.length) resetResults();
+    }
+  }, 150);
+});
+
+clearAllImagesButton.addEventListener("click", (event) => {
+  event.stopPropagation();
+  state.selectedFiles = [];
+  resetResults();
+  renderSelectedFiles();
 });
 
 closeDialogButton.addEventListener("click", () => imageDialog.close());

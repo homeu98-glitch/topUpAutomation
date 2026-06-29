@@ -103,6 +103,11 @@ export default async function handler(req, res) {
     return settingsHandler(req, res);
   }
 
+  if (pathname.endsWith("/owner/update-transaction")) {
+    const { default: updateTransactionHandler } = await import("./owner/update-transaction.js");
+    return updateTransactionHandler(req, res);
+  }
+
   if (pathname.endsWith("/cron/auto-approve")) {
     const { default: cronHandler } = await import("./cron/auto-approve.js");
     return cronHandler(req, res);

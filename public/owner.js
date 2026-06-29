@@ -14,11 +14,13 @@ const state = {
   selectedIds: new Set(),
   autoApproveEnabled: false,
   authBooting: true,
+  searchTerm: "",
 };
 
 const ownerStatusBanner = document.getElementById("ownerStatusBanner");
 const ownerErrorCard = document.getElementById("ownerErrorCard");
 const ownerAuthBootCard = document.getElementById("ownerAuthBootCard");
+const ownerHeaderSession = document.getElementById("ownerHeaderSession");
 const ownerLoginCard = document.getElementById("ownerLoginCard");
 const ownerApp = document.getElementById("ownerApp");
 const ownerLoginInput = document.getElementById("ownerLoginInput");
@@ -28,8 +30,9 @@ const ownerLogoutButton = document.getElementById("ownerLogoutButton");
 const autoApproveToggle = document.getElementById("autoApproveToggle");
 const ownerShopBadge = document.getElementById("ownerShopBadge");
 const ownerLoginBadge = document.getElementById("ownerLoginBadge");
-const dateFromInput = document.getElementById("dateFromInput");
-const dateToInput = document.getElementById("dateToInput");
+const customerSearchInput = document.getElementById("customerSearchInput");
+const customerSearchButton = document.getElementById("customerSearchButton");
+const customerSearchClearButton = document.getElementById("customerSearchClearButton");
 const pageSizeSelect = document.getElementById("pageSizeSelect");
 const batchApproveButton = document.getElementById("batchApproveButton");
 const refreshDashboardButton = document.getElementById("refreshDashboardButton");
@@ -112,6 +115,16 @@ function showDetailDialog(transaction) {
       <h3>交易明細</h3>
       <span class="pill">${transaction.customer_code}</span>
     </div>
+    <div class="detail-edit-summary">
+      <label class="edit-field prominent-edit-field">
+        <span>總金額</span>
+        <input id="detailTotalAmountInput" class="text-input" type="number" min="0" step="0.01" value="${Number(transaction.total_amount || 0).toFixed(2)}" />
+      </label>
+      <div class="detail-dialog-actions">
+        <button id="saveDetailButton" class="secondary-button" type="button">儲存修改</button>
+        ${transaction.status === "pending" ? `<button id="saveAndApproveButton" class="primary-button" type="button">儲存並核准</button>` : ""}
+      </div>
+    </div>
     <div class="detail-list owner-detail-list">
       ${(transaction.items || [])
         .map(
@@ -125,6 +138,10 @@ function showDetailDialog(transaction) {
                 <button class="thumb-button detail-thumb-button" type="button" data-src="${item.previewUrl}" data-alt="交易明細 ${index + 1}">
                   <img src="${item.previewUrl}" alt="交易明細 ${index + 1}" />
                 </button>
+                <label class="edit-field prominent-edit-field">
+                  <span>可編輯金額</span>
+                  <input class="text-input detail-amount-input" type="number" min="0" step="0.01" data-index="${index}" value="${Number(item?.extracted?.amount || 0).toFixed(2)}" />
+                </label>
                 <span>商戶：${item?.extracted?.merchantName || "-"}</span>
                 <span>訂單號：${item?.extracted?.transactionOrderNo || "-"}</span>
                 <span>金額：${item?.extracted?.amount || "-"}</span>
@@ -143,6 +160,24 @@ function showDetailDialog(transaction) {
   ownerDetailDialog.showModal();
   ownerDetailContent.querySelectorAll(".detail-thumb-button").forEach((button) => {
     button.addEventListener("click", () => showImageDialog(button.dataset.src, button.dataset.alt || "交易圖片"));
+  });
+  const totalInput = ownerDetailContent.querySelector("#detailTotalAmountInput");
+  const amountInputs = [...ownerDetailContent.querySelectorAll(".detail-amount-input")];
+  amountInputs.forEach((input) => {
+    input.addEventListener("input", () => {
+      if (totalInput?.dataset.manual === "true") return;
+      const sum = amountInputs.reduce((acc, current) => acc + Number(current.value || 0), 0);
+      totalInput.value = sum.toFixed(2);
+    });
+  });
+  totalInput?.addEventListener("input", () => {
+    totalInput.dataset.manual = "true";
+  });
+  ownerDetailContent.querySelector("#saveDetailButton")?.addEventListener("click", () => {
+    saveDetailChanges(transaction.id, false);
+  });
+  ownerDetailContent.querySelector("#saveAndApproveButton")?.addEventListener("click", () => {
+    saveDetailChanges(transaction.id, true);
   });
 }
 
@@ -176,12 +211,18 @@ function renderOwnerSession() {
   if (state.authBooting) {
     ownerLoginCard.classList.add("hidden");
     ownerApp.classList.add("hidden");
+    ownerHeaderSession.classList.add("hidden");
     return;
   }
   ownerLoginCard.classList.toggle("hidden", isLoggedIn);
   ownerApp.classList.toggle("hidden", !isLoggedIn);
+  ownerHeaderSession.classList.toggle("hidden", !isLoggedIn);
 
-  if (!isLoggedIn) return;
+  if (!isLoggedIn) {
+    ownerShopBadge.textContent = "未登入";
+    ownerLoginBadge.textContent = "-";
+    return;
+  }
 
   ownerShopBadge.textContent = state.user.shopName || "未命名店舖";
   ownerLoginBadge.textContent = state.user.ownerLogin || "-";
@@ -208,7 +249,8 @@ function renderPagination() {
 
 function renderTransactions(transactions) {
   if (!transactions.length) {
-    transactionTableBody.innerHTML = `<tr><td colspan="8"><div class="empty-state">目前沒有${state.mode === "pending" ? "待審核" : "歷史"}資料。</div></td></tr>`;
+    const emptyLabel = state.searchTerm ? "搜尋結果" : state.mode === "pending" ? "待審核" : "歷史";
+    transactionTableBody.innerHTML = `<tr><td colspan="8"><div class="empty-state">目前沒有${emptyLabel}資料。</div></td></tr>`;
     renderPagination();
     selectAllCheckbox.checked = false;
     batchApproveButton.disabled = true;
@@ -266,7 +308,7 @@ function renderTransactions(transactions) {
   selectAllCheckbox.checked =
     transactions.length > 0 &&
     transactions.every((transaction) => transaction.status !== "pending" || state.selectedIds.has(transaction.id));
-  batchApproveButton.disabled = !state.selectedIds.size || state.mode !== "pending";
+  batchApproveButton.disabled = !state.selectedIds.size || (state.mode !== "pending" && !state.searchTerm);
 
   transactionTableBody.querySelectorAll(".thumb-button").forEach((button) => {
     button.addEventListener("click", () => {
@@ -349,14 +391,20 @@ function renderTransactions(transactions) {
 async function loadOwnerData() {
   resetError();
   const params = new URLSearchParams();
-  if (dateFromInput.value) params.set("from", dateFromInput.value);
-  if (dateToInput.value) params.set("to", dateToInput.value);
   params.set("page", String(state.page));
   params.set("pageSize", String(state.pageSize));
+  if (state.searchTerm) {
+    params.set("customerCode", state.searchTerm);
+  }
+
+  const transactionQuery = new URLSearchParams({
+    ...Object.fromEntries(params),
+    mode: state.searchTerm ? "all" : state.mode,
+  });
 
   const [dashboardPayload, transactionsPayload, settingsPayload] = await Promise.all([
     apiFetch(`/api/owner/dashboard?${params.toString()}`),
-    apiFetch(`/api/owner/transactions?${new URLSearchParams({ ...Object.fromEntries(params), mode: state.mode }).toString()}`),
+    apiFetch(`/api/owner/transactions?${transactionQuery.toString()}`),
     apiFetch("/api/owner/settings"),
   ]);
 
@@ -368,6 +416,38 @@ async function loadOwnerData() {
   state.autoApproveEnabled = Boolean(settingsPayload.settings?.auto_approve_enabled);
   autoApproveToggle.checked = state.autoApproveEnabled;
   renderTransactions(state.transactions);
+}
+
+async function saveDetailChanges(transactionId, approveAfterSave) {
+  const totalAmount = ownerDetailContent.querySelector("#detailTotalAmountInput")?.value || "";
+  const itemAmounts = [...ownerDetailContent.querySelectorAll(".detail-amount-input")].map((input) => input.value);
+
+  try {
+    const saveButton = ownerDetailContent.querySelector("#saveDetailButton");
+    const approveButton = ownerDetailContent.querySelector("#saveAndApproveButton");
+    if (saveButton) saveButton.disabled = true;
+    if (approveButton) approveButton.disabled = true;
+
+    await apiFetch("/api/owner/update-transaction", {
+      method: "POST",
+      body: JSON.stringify({ transactionId, totalAmount, itemAmounts }),
+    });
+
+    if (approveAfterSave) {
+      await apiFetch("/api/owner/approve", {
+        method: "POST",
+        body: JSON.stringify({ transactionId }),
+      });
+      showStatus("已儲存交易並完成核准");
+    } else {
+      showStatus("已儲存交易修改");
+    }
+
+    ownerDetailDialog.close();
+    await loadOwnerData();
+  } catch (error) {
+    showError(error instanceof Error ? error.message : "儲存修改失敗");
+  }
 }
 
 async function loginOwner() {
@@ -396,6 +476,8 @@ async function loginOwner() {
 async function logoutOwner() {
   await apiFetch("/api/auth/logout", { method: "POST" });
   state.user = null;
+  state.searchTerm = "";
+  customerSearchInput.value = "";
   renderOwnerSession();
   transactionTableBody.innerHTML = "";
   dashboardCards.innerHTML = "";
@@ -460,6 +542,29 @@ historyTabButton.addEventListener("click", async () => {
 
 pageSizeSelect.addEventListener("change", async () => {
   state.pageSize = pageSizeSelect.value;
+  state.page = 1;
+  state.selectedIds.clear();
+  await loadOwnerData();
+});
+
+customerSearchButton.addEventListener("click", async () => {
+  state.searchTerm = customerSearchInput.value.trim();
+  state.page = 1;
+  state.selectedIds.clear();
+  await loadOwnerData();
+});
+
+customerSearchInput.addEventListener("keydown", async (event) => {
+  if (event.key !== "Enter") return;
+  state.searchTerm = customerSearchInput.value.trim();
+  state.page = 1;
+  state.selectedIds.clear();
+  await loadOwnerData();
+});
+
+customerSearchClearButton.addEventListener("click", async () => {
+  customerSearchInput.value = "";
+  state.searchTerm = "";
   state.page = 1;
   state.selectedIds.clear();
   await loadOwnerData();

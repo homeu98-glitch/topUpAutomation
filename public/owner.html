@@ -8,12 +8,23 @@
   </head>
   <body class="owner-page owner-auth-booting">
     <div class="page">
-      <header class="hero hero-compact">
+      <header class="hero hero-compact owner-hero">
         <div>
           <h1>店主後台</h1>
           <p class="subtitle">查看待審核交易、核准充值紀錄與統計。</p>
         </div>
-        <a class="secondary-button nav-link" href="/">客戶入口</a>
+        <div class="owner-hero-actions">
+          <div id="ownerHeaderSession" class="header-session hidden">
+            <span id="ownerShopBadge" class="pill">未登入</span>
+            <span id="ownerLoginBadge" class="pill subtle-pill">-</span>
+            <label class="toggle-row">
+              <span>自動核准</span>
+              <input id="autoApproveToggle" type="checkbox" />
+            </label>
+            <button id="ownerLogoutButton" class="secondary-button" type="button">登出</button>
+          </div>
+          <a class="secondary-button nav-link" href="/">客戶入口</a>
+        </div>
       </header>
 
       <section id="ownerStatusBanner" class="card status-banner hidden"></section>
@@ -38,37 +49,6 @@
       </section>
 
       <main id="ownerApp" class="hidden">
-        <section class="card">
-          <div class="session-bar">
-            <div class="session-info">
-              <span id="ownerShopBadge" class="pill">未登入</span>
-              <span id="ownerLoginBadge" class="pill subtle-pill">-</span>
-            </div>
-            <div class="session-actions">
-              <label class="toggle-row">
-                <span>自動核准</span>
-                <input id="autoApproveToggle" type="checkbox" />
-              </label>
-              <button id="ownerLogoutButton" class="secondary-button" type="button">登出</button>
-            </div>
-          </div>
-        </section>
-
-        <section class="card">
-          <div class="filter-bar compact-filter-bar">
-            <div class="date-filters">
-              <label>
-                <span>開始日期</span>
-                <input id="dateFromInput" class="text-input" type="date" />
-              </label>
-              <label>
-                <span>結束日期</span>
-                <input id="dateToInput" class="text-input" type="date" />
-              </label>
-            </div>
-          </div>
-        </section>
-
         <section id="dashboardCards" class="dashboard-grid"></section>
 
         <section class="card">
@@ -78,6 +58,11 @@
               <button id="historyTabButton" class="tab-button" type="button">歷史紀錄</button>
             </div>
             <div class="owner-toolbar-actions">
+              <div class="search-box">
+                <input id="customerSearchInput" class="text-input" type="text" inputmode="numeric" placeholder="搜尋客戶號碼" />
+                <button id="customerSearchButton" class="secondary-button" type="button">搜尋</button>
+                <button id="customerSearchClearButton" class="secondary-button" type="button">清除</button>
+              </div>
               <label class="page-size-picker">
                 <span>每頁</span>
                 <select id="pageSizeSelect" class="text-input">

@@ -22,6 +22,7 @@ import rejectHandler from "./api/owner/reject.js";
 import revokeHandler from "./api/owner/revoke.js";
 import settingsHandler from "./api/owner/settings.js";
 import transactionsHandler from "./api/owner/transactions.js";
+import updateTransactionHandler from "./api/owner/update-transaction.js";
 import shopsHandler from "./api/shops.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -58,6 +59,7 @@ mountRoute("/api/owner/batch-approve", batchApproveHandler);
 mountRoute("/api/owner/reject", rejectHandler);
 mountRoute("/api/owner/revoke", revokeHandler);
 mountRoute("/api/owner/settings", settingsHandler);
+mountRoute("/api/owner/update-transaction", updateTransactionHandler);
 mountRoute("/api/cron/auto-approve", autoApproveHandler);
 
 if (!HAS_SUPABASE_STORAGE) {

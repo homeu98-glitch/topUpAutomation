@@ -234,6 +234,32 @@ td {
   align-items: center;
 }
 
+.owner-hero {
+  align-items: flex-start;
+}
+
+.owner-hero-actions,
+.header-session,
+.search-box,
+.detail-edit-summary,
+.detail-dialog-actions,
+.edit-field {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.owner-hero-actions {
+  margin-left: auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.header-session {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .text-input,
 .shop-picker select,
 .date-filters input {
@@ -258,6 +284,14 @@ td {
 .shop-fixed strong {
   color: var(--text);
   font-size: 16px;
+}
+
+.search-box {
+  flex-wrap: wrap;
+}
+
+.search-box .text-input {
+  min-width: 180px;
 }
 
 .login-row {
@@ -661,6 +695,38 @@ th {
   min-width: min(92vw, 920px);
 }
 
+.detail-edit-summary {
+  justify-content: space-between;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+
+.edit-field {
+  border: 2px solid #d2e3fc;
+  background: #eef4ff;
+  border-radius: 16px;
+  padding: 10px 12px;
+  flex-wrap: wrap;
+}
+
+.edit-field span {
+  color: #174ea6;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.prominent-edit-field .text-input {
+  border: 2px solid #8ab4f8;
+  background: #fff;
+  min-width: 120px;
+  font-weight: 700;
+}
+
+.detail-dialog-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .owner-detail-list {
   margin-top: 16px;
 }
@@ -724,6 +790,11 @@ th {
   .session-actions,
   .filter-bar,
   .list-toolbar,
+  .owner-hero-actions,
+  .header-session,
+  .search-box,
+  .detail-edit-summary,
+  .detail-dialog-actions,
   .transaction-head,
   .transaction-actions,
   .owner-item-header,
@@ -743,12 +814,6 @@ th {
   .dashboard-grid {
     grid-template-columns: 1fr 1fr;
   }
-
-  .date-filters {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
   .thumb-button {
     width: 44px;
     height: 44px;

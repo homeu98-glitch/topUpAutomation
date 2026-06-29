@@ -13,6 +13,7 @@ const state = {
   transactions: [],
   selectedIds: new Set(),
   autoApproveEnabled: false,
+  autoApproveIntervalSeconds: 300,
   authBooting: true,
   searchTerm: "",
 };
@@ -27,7 +28,7 @@ const ownerLoginInput = document.getElementById("ownerLoginInput");
 const ownerPasswordInput = document.getElementById("ownerPasswordInput");
 const ownerLoginButton = document.getElementById("ownerLoginButton");
 const ownerLogoutButton = document.getElementById("ownerLogoutButton");
-const autoApproveToggle = document.getElementById("autoApproveToggle");
+const autoApproveButton = document.getElementById("autoApproveButton");
 const ownerShopBadge = document.getElementById("ownerShopBadge");
 const ownerLoginBadge = document.getElementById("ownerLoginBadge");
 const customerSearchInput = document.getElementById("customerSearchInput");
@@ -50,6 +51,12 @@ const ownerCloseDialogButton = document.getElementById("ownerCloseDialogButton")
 const ownerDetailDialog = document.getElementById("ownerDetailDialog");
 const ownerDetailContent = document.getElementById("ownerDetailContent");
 const ownerCloseDetailButton = document.getElementById("ownerCloseDetailButton");
+const autoApproveDialog = document.getElementById("autoApproveDialog");
+const closeAutoApproveDialogButton = document.getElementById("closeAutoApproveDialogButton");
+const autoApproveStateBadge = document.getElementById("autoApproveStateBadge");
+const autoApproveIntervalInput = document.getElementById("autoApproveIntervalInput");
+const disableAutoApproveButton = document.getElementById("disableAutoApproveButton");
+const confirmAutoApproveButton = document.getElementById("confirmAutoApproveButton");
 
 function formatCurrency(value) {
   return `MOP ${Number(value || 0).toFixed(2)}`;
@@ -226,6 +233,15 @@ function renderOwnerSession() {
 
   ownerShopBadge.textContent = state.user.shopName || "未命名店舖";
   ownerLoginBadge.textContent = state.user.ownerLogin || "-";
+  autoApproveButton.textContent = state.autoApproveEnabled
+    ? `自動核准中（${state.autoApproveIntervalSeconds} 秒）`
+    : "設定自動核准";
+}
+
+function syncAutoApproveDialog() {
+  autoApproveStateBadge.textContent = state.autoApproveEnabled ? "已啟用" : "未啟用";
+  autoApproveIntervalInput.value = String(state.autoApproveIntervalSeconds || 300);
+  disableAutoApproveButton.classList.toggle("hidden", !state.autoApproveEnabled);
 }
 
 function renderDashboard(stats) {
@@ -414,7 +430,9 @@ async function loadOwnerData() {
   state.pageCount = transactionsPayload.pageCount || 1;
   state.page = transactionsPayload.page || 1;
   state.autoApproveEnabled = Boolean(settingsPayload.settings?.auto_approve_enabled);
-  autoApproveToggle.checked = state.autoApproveEnabled;
+  state.autoApproveIntervalSeconds = Number(settingsPayload.settings?.auto_approve_interval_minutes || 300);
+  syncAutoApproveDialog();
+  renderOwnerSession();
   renderTransactions(state.transactions);
 }
 
@@ -613,24 +631,42 @@ batchApproveButton.addEventListener("click", async () => {
   }
 });
 
-autoApproveToggle.addEventListener("change", async () => {
-  if (autoApproveToggle.checked) {
-    const confirmed = window.confirm("開啟後，系統會每 5 分鐘自動核准所有待審核交易，無需人工操作。請先確認你已了解自動核准的風險，是否繼續？");
-    if (!confirmed) {
-      autoApproveToggle.checked = false;
-      return;
-    }
-  }
+async function updateAutoApproveSettings(autoApproveEnabled) {
+  const intervalSeconds = Math.max(1, Number(autoApproveIntervalInput.value) || state.autoApproveIntervalSeconds || 300);
   try {
+    confirmAutoApproveButton.disabled = true;
+    disableAutoApproveButton.disabled = true;
     await apiFetch("/api/owner/settings", {
       method: "POST",
-      body: JSON.stringify({ autoApproveEnabled: autoApproveToggle.checked }),
+      body: JSON.stringify({ autoApproveEnabled, autoApproveIntervalSeconds: intervalSeconds }),
     });
-    showStatus(autoApproveToggle.checked ? "已開啟自動核准，每 5 分鐘執行一次" : "已關閉自動核准");
+    state.autoApproveEnabled = autoApproveEnabled;
+    state.autoApproveIntervalSeconds = intervalSeconds;
+    syncAutoApproveDialog();
+    renderOwnerSession();
+    showStatus(autoApproveEnabled ? `已開啟自動核准，間隔 ${intervalSeconds} 秒` : "已關閉自動核准");
+    if (!autoApproveEnabled) {
+      autoApproveDialog.close();
+    }
   } catch (error) {
-    autoApproveToggle.checked = !autoApproveToggle.checked;
     showError(error instanceof Error ? error.message : "更新自動核准失敗");
+  } finally {
+    confirmAutoApproveButton.disabled = false;
+    disableAutoApproveButton.disabled = false;
   }
+}
+
+autoApproveButton.addEventListener("click", () => {
+  syncAutoApproveDialog();
+  autoApproveDialog.showModal();
+});
+
+confirmAutoApproveButton.addEventListener("click", async () => {
+  await updateAutoApproveSettings(true);
+});
+
+disableAutoApproveButton.addEventListener("click", async () => {
+  await updateAutoApproveSettings(false);
 });
 
 ownerLoginButton.addEventListener("click", loginOwner);
@@ -638,6 +674,7 @@ ownerLogoutButton.addEventListener("click", logoutOwner);
 refreshDashboardButton.addEventListener("click", loadOwnerData);
 ownerCloseDialogButton.addEventListener("click", () => ownerImageDialog.close());
 ownerCloseDetailButton.addEventListener("click", () => ownerDetailDialog.close());
+closeAutoApproveDialogButton.addEventListener("click", () => autoApproveDialog.close());
 ownerImageDialog.addEventListener("click", (event) => {
   const rect = ownerImageDialog.getBoundingClientRect();
   const clickedInside =
@@ -655,6 +692,15 @@ ownerDetailDialog.addEventListener("click", (event) => {
     rect.left <= event.clientX &&
     event.clientX <= rect.left + rect.width;
   if (!clickedInside) ownerDetailDialog.close();
+});
+autoApproveDialog.addEventListener("click", (event) => {
+  const rect = autoApproveDialog.getBoundingClientRect();
+  const clickedInside =
+    rect.top <= event.clientY &&
+    event.clientY <= rect.top + rect.height &&
+    rect.left <= event.clientX &&
+    event.clientX <= rect.left + rect.width;
+  if (!clickedInside) autoApproveDialog.close();
 });
 
 window.addEventListener("load", async () => {

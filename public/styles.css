@@ -287,7 +287,8 @@ td {
 .search-box,
 .detail-edit-summary,
 .detail-dialog-actions,
-.edit-field {
+.edit-field,
+.interval-input-row {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -370,6 +371,10 @@ td {
   align-items: center;
   gap: 8px;
   color: var(--subtle);
+}
+
+.interval-input-row .text-input {
+  min-width: 120px;
 }
 
 .primary-button {

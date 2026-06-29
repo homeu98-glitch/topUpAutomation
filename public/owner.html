@@ -17,10 +17,7 @@
           <div id="ownerHeaderSession" class="header-session hidden">
             <span id="ownerShopBadge" class="pill">未登入</span>
             <span id="ownerLoginBadge" class="pill subtle-pill">-</span>
-            <label class="toggle-row">
-              <span>自動核准</span>
-              <input id="autoApproveToggle" type="checkbox" />
-            </label>
+            <button id="autoApproveButton" class="secondary-button" type="button">設定自動核准</button>
             <button id="ownerLogoutButton" class="secondary-button" type="button">登出</button>
           </div>
           <a class="secondary-button nav-link" href="/">客戶入口</a>
@@ -111,6 +108,32 @@
     <dialog id="ownerDetailDialog" class="image-dialog detail-dialog">
       <button id="ownerCloseDetailButton" class="dialog-close" type="button">關閉</button>
       <div id="ownerDetailContent" class="owner-detail-content"></div>
+    </dialog>
+
+    <dialog id="autoApproveDialog" class="image-dialog detail-dialog">
+      <button id="closeAutoApproveDialogButton" class="dialog-close" type="button">關閉</button>
+      <div class="owner-detail-content">
+        <div class="section-header">
+          <h3>自動核准設定</h3>
+          <span id="autoApproveStateBadge" class="pill subtle-pill">未啟用</span>
+        </div>
+        <p class="detail-note" style="margin-top: 12px;">
+          開啟後，系統會按你設定的秒數，自動核准已等待足夠時間的待審核交易。請先確認你了解自動核准風險。
+        </p>
+        <div class="detail-edit-summary">
+          <label class="edit-field prominent-edit-field">
+            <span>間隔</span>
+            <div class="interval-input-row">
+              <input id="autoApproveIntervalInput" class="text-input" type="number" min="1" step="1" value="300" />
+              <span class="field-note">Second</span>
+            </div>
+          </label>
+        </div>
+        <div class="detail-dialog-actions" style="margin-top: 16px;">
+          <button id="disableAutoApproveButton" class="secondary-button" type="button">停止自動核准</button>
+          <button id="confirmAutoApproveButton" class="primary-button" type="button">確認啟動</button>
+        </div>
+      </div>
     </dialog>
 
     <script>

@@ -20,10 +20,11 @@ export default async function handler(req, res) {
     }
 
     if (req.method === "POST") {
-      const { autoApproveEnabled } = req.body || {};
+      const { autoApproveEnabled, autoApproveIntervalSeconds } = req.body || {};
       const settings = await updateOwnerSettings({
         shopId: session.shopId,
         autoApproveEnabled: Boolean(autoApproveEnabled),
+        autoApproveIntervalSeconds: Math.max(1, Number(autoApproveIntervalSeconds) || 300),
       });
       return res.status(200).json({ settings });
     }

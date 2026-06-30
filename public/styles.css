@@ -897,14 +897,6 @@ th {
   border: 2px solid #188038;
 }
 
-.verified-item .thumb-amount {
-  border: 2px solid #188038;
-  border-radius: 12px;
-  padding: 2px 8px;
-  background: rgba(24, 128, 56, 0.08);
-  color: #188038;
-}
-
 .verified-banner {
   margin-top: 12px;
   padding: 10px 12px;
@@ -917,18 +909,6 @@ th {
 
 .verified-thumb {
   border: 2px solid #188038 !important;
-}
-
-.verified-amount {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
-  border-radius: 12px;
-  border: 2px solid #188038;
-  background: rgba(24, 128, 56, 0.08);
-  color: #188038;
-  font-weight: 800;
 }
 
 .failed-tag {
@@ -948,14 +928,6 @@ th {
   border: 2px solid #d93025;
 }
 
-.failed-item .thumb-amount {
-  border: 2px solid #d93025;
-  border-radius: 12px;
-  padding: 2px 8px;
-  background: rgba(217, 48, 37, 0.08);
-  color: #d93025;
-}
-
 .failed-banner {
   margin-top: 12px;
   padding: 10px 12px;
@@ -970,16 +942,50 @@ th {
   border: 2px solid #d93025 !important;
 }
 
-.failed-amount {
+.no-match-tag {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
-  border-radius: 12px;
-  border: 2px solid #d93025;
-  background: rgba(217, 48, 37, 0.08);
-  color: #d93025;
+  justify-content: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(185, 118, 0, 0.35);
+  background: rgba(255, 196, 0, 0.16);
+  color: #8a5200;
   font-weight: 800;
+  font-size: 12px;
+}
+
+.no-match-item .thumb-button {
+  border: 2px solid #f9ab00;
+}
+
+.no-match-banner {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(249, 171, 0, 0.35);
+  background: rgba(249, 171, 0, 0.12);
+  color: #8a5200;
+  font-weight: 800;
+}
+
+.no-match-thumb {
+  border: 2px solid #f9ab00 !important;
+}
+
+#ownerDialogImage.verified-preview {
+  border: 3px solid #188038;
+  border-radius: 18px;
+}
+
+#ownerDialogImage.failed-preview {
+  border: 3px solid #d93025;
+  border-radius: 18px;
+}
+
+#ownerDialogImage.no-match-preview {
+  border: 3px solid #f9ab00;
+  border-radius: 18px;
 }
 
 .thumb-button {

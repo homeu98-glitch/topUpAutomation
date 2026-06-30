@@ -138,9 +138,13 @@ function setAuthBooting(isBooting) {
   ownerAuthBootCard.classList.toggle("hidden", !isBooting);
 }
 
-function showImageDialog(src, alt) {
+function showImageDialog(src, alt, verificationStatus = "") {
   ownerDialogImage.src = src;
   ownerDialogImage.alt = alt;
+  ownerDialogImage.classList.remove("verified-preview", "failed-preview", "no-match-preview");
+  if (verificationStatus === "verified") ownerDialogImage.classList.add("verified-preview");
+  if (verificationStatus === "invalid") ownerDialogImage.classList.add("failed-preview");
+  if (verificationStatus === "no_match") ownerDialogImage.classList.add("no-match-preview");
   ownerImageDialog.showModal();
 }
 
@@ -155,6 +159,8 @@ function showDetailDialog(transaction) {
         ? `<div class="verified-banner">Verified</div>`
         : transaction.verificationStatus === "invalid"
           ? `<div class="failed-banner">Not Verified（狀態：${transaction.mpayTransactionStatus || "-"}）</div>`
+          : transaction.verificationStatus === "no_match"
+            ? `<div class="no-match-banner">No Match</div>`
           : ""
     }
     <div class="detail-edit-summary">
@@ -182,17 +188,13 @@ function showDetailDialog(transaction) {
                     ? "verified-thumb"
                     : transaction.verificationStatus === "invalid"
                       ? "failed-thumb"
+                      : transaction.verificationStatus === "no_match"
+                        ? "no-match-thumb"
                       : ""
-                }" type="button" data-src="${item.previewUrl}" data-alt="交易明細 ${index + 1}">
+                }" type="button" data-src="${item.previewUrl}" data-alt="交易明細 ${index + 1}" data-verification-status="${transaction.verificationStatus || ""}">
                   <img src="${item.previewUrl}" alt="交易明細 ${index + 1}" />
                 </button>
-                <span class="${
-                  transaction.verificationStatus === "verified"
-                    ? "verified-amount"
-                    : transaction.verificationStatus === "invalid"
-                      ? "failed-amount"
-                      : ""
-                }">客戶提交金額：${formatCurrency(item?.selectedAmount || item?.manualAmount || item?.extracted?.amount)}</span>
+                <span>客戶提交金額：${formatCurrency(item?.selectedAmount || item?.manualAmount || item?.extracted?.amount)}</span>
                 <label class="edit-field prominent-edit-field">
                   <span>可編輯金額</span>
                   <input class="text-input detail-amount-input" type="number" min="0" step="0.01" data-index="${index}" value="${Number(item?.extracted?.amount || 0).toFixed(2)}" />
@@ -214,7 +216,9 @@ function showDetailDialog(transaction) {
   `;
   ownerDetailDialog.showModal();
   ownerDetailContent.querySelectorAll(".detail-thumb-button").forEach((button) => {
-    button.addEventListener("click", () => showImageDialog(button.dataset.src, button.dataset.alt || "交易圖片"));
+    button.addEventListener("click", () =>
+      showImageDialog(button.dataset.src, button.dataset.alt || "交易圖片", button.dataset.verificationStatus || "")
+    );
   });
   const totalInput = ownerDetailContent.querySelector("#detailTotalAmountInput");
   const amountInputs = [...ownerDetailContent.querySelectorAll(".detail-amount-input")];
@@ -355,7 +359,7 @@ function renderPagination() {
 function renderTransactions(transactions) {
   if (!transactions.length) {
     const emptyLabel = state.searchTerm ? "搜尋結果" : state.mode === "pending" ? "待審核" : "歷史";
-    transactionTableBody.innerHTML = `<tr><td colspan="9"><div class="empty-state">目前沒有${emptyLabel}資料。</div></td></tr>`;
+    transactionTableBody.innerHTML = `<tr><td colspan="8"><div class="empty-state">目前沒有${emptyLabel}資料。</div></td></tr>`;
     renderPagination();
     selectAllCheckbox.checked = false;
     batchApproveButton.disabled = true;
@@ -371,7 +375,6 @@ function renderTransactions(transactions) {
           </td>
           <td>${formatDateTime(transaction.submitted_at)}</td>
           <td>${transaction.customer_code}</td>
-          <td class="mono">${transaction.transaction_OrderNo || "-"}</td>
           <td>
             <div class="thumb-list">
               ${(transaction.items || [])
@@ -382,9 +385,11 @@ function renderTransactions(transactions) {
                       ? "verified-item"
                       : transaction.verificationStatus === "invalid"
                         ? "failed-item"
+                        : transaction.verificationStatus === "no_match"
+                          ? "no-match-item"
                         : ""
                   }">
-                    <button class="thumb-button" type="button" data-src="${item.previewUrl}" data-alt="交易明細 ${index + 1}">
+                    <button class="thumb-button" type="button" data-src="${item.previewUrl}" data-alt="交易明細 ${index + 1}" data-verification-status="${transaction.verificationStatus || ""}">
                       <img src="${item.previewUrl}" alt="交易明細 ${index + 1}" />
                     </button>
                     <span class="thumb-amount">${formatCurrency(item?.selectedAmount || item?.manualAmount || item?.extracted?.amount)}</span>
@@ -404,6 +409,8 @@ function renderTransactions(transactions) {
                   ? `<span class="verified-tag">Verified</span>`
                   : transaction.verificationStatus === "invalid"
                     ? `<span class="failed-tag">Not Verified</span>`
+                    : transaction.verificationStatus === "no_match"
+                      ? `<span class="no-match-tag">No Match</span>`
                     : ""
               }
               ${
@@ -434,7 +441,7 @@ function renderTransactions(transactions) {
 
   transactionTableBody.querySelectorAll(".thumb-button").forEach((button) => {
     button.addEventListener("click", () => {
-      showImageDialog(button.dataset.src, button.dataset.alt || "交易圖片");
+      showImageDialog(button.dataset.src, button.dataset.alt || "交易圖片", button.dataset.verificationStatus || "");
     });
   });
 

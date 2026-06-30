@@ -10,6 +10,8 @@
 }
 
 .owner-page .mobile-fab {
+  display: grid !important;
+  place-items: center;
   position: fixed;
   top: 12px;
   width: 44px;

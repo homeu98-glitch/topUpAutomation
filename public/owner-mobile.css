@@ -181,12 +181,16 @@
 
 .owner-page .mobile-owner-dialog {
   width: min(100vw - 20px, 420px);
+  max-width: calc(100vw - 20px);
+  box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 .owner-page .mobile-owner-menu-grid {
   display: grid;
   gap: 10px;
   margin-top: 12px;
+  max-width: 100%;
 }
 
 .owner-page .mobile-owner-info-card {
@@ -203,6 +207,7 @@
   display: grid;
   gap: 10px;
   margin-top: 14px;
+  max-width: 100%;
 }
 
 .owner-page .mobile-owner-menu-actions .secondary-button,
@@ -223,10 +228,14 @@
   border-radius: 14px;
   background: #f8fafc;
   border: 1px solid #e6ebf2;
+  max-width: 100%;
 }
 
 .owner-page .detail-dialog,
 .owner-page .image-dialog {
   width: min(100vw - 20px, 720px);
+  max-width: calc(100vw - 20px);
   padding: 18px;
+  box-sizing: border-box;
+  overflow-x: hidden;
 }

@@ -23,9 +23,11 @@ const state = {
   dashboardLoadedAt: 0,
   settingsLoadedAt: 0,
   transactionCache: new Map(),
+  liveModeEnabled: false,
 };
-const OWNER_POLL_INTERVAL_MS = 3000;
+const OWNER_POLL_INTERVAL_MS = 8000;
 const OWNER_META_CACHE_MS = 30000;
+const OWNER_LIVE_MODE_STORAGE_KEY = "ownerLiveModeEnabled";
 let ownerPollTimer = null;
 let statusHideTimer = null;
 let autoApproveCountdownTimer = null;
@@ -43,6 +45,7 @@ const ownerPasswordInput = document.getElementById("ownerPasswordInput");
 const ownerLoginButton = document.getElementById("ownerLoginButton");
 const ownerLogoutButton = document.getElementById("ownerLogoutButton");
 const autoApproveButton = document.getElementById("autoApproveButton");
+const liveModeButton = document.getElementById("liveModeButton");
 const pendingTabBadge = document.getElementById("pendingTabBadge");
 const ownerShopBadge = document.getElementById("ownerShopBadge");
 const ownerLoginBadge = document.getElementById("ownerLoginBadge");
@@ -85,6 +88,7 @@ const ownerLoadingText = document.getElementById("ownerLoadingText");
 const mobileOwnerShopName = document.getElementById("mobileOwnerShopName");
 const mobileOwnerLogin = document.getElementById("mobileOwnerLogin");
 const mobileMenuAutoApproveButton = document.getElementById("mobileMenuAutoApproveButton");
+const mobileMenuLiveModeButton = document.getElementById("mobileMenuLiveModeButton");
 const mobileMenuRefreshButton = document.getElementById("mobileMenuRefreshButton");
 const mobileMenuBatchApproveButton = document.getElementById("mobileMenuBatchApproveButton");
 const mobileMenuLogoutButton = document.getElementById("mobileMenuLogoutButton");
@@ -323,6 +327,10 @@ function renderOwnerSession() {
   autoApproveButton.textContent = state.autoApproveEnabled
     ? `自動核准中（${Math.max(0, state.autoApproveRemainingSeconds || state.autoApproveIntervalSeconds)} 秒）`
     : "設定自動核准";
+  liveModeButton.textContent = `Live Mode: ${state.liveModeEnabled ? "On" : "Off"}`;
+  liveModeButton.classList.toggle("active-live-toggle", state.liveModeEnabled);
+  mobileMenuLiveModeButton.textContent = `Live Mode: ${state.liveModeEnabled ? "On" : "Off"}`;
+  mobileMenuLiveModeButton.classList.toggle("active-live-toggle", state.liveModeEnabled);
   pendingTabBadge.textContent = String(state.pendingCount || 0);
   pendingTabBadge.classList.toggle("hidden", !state.pendingCount);
   mobilePendingTabBadge.textContent = String(state.pendingCount || 0);
@@ -336,12 +344,44 @@ function renderOwnerSession() {
   mobileMenuBatchApproveButton.disabled = !state.selectedIds.size || (state.mode !== "pending" && !state.searchTerm);
 }
 
+function loadLiveModePreference() {
+  try {
+    state.liveModeEnabled = window.localStorage.getItem(OWNER_LIVE_MODE_STORAGE_KEY) === "1";
+  } catch {
+    state.liveModeEnabled = false;
+  }
+}
+
+function persistLiveModePreference() {
+  try {
+    window.localStorage.setItem(OWNER_LIVE_MODE_STORAGE_KEY, state.liveModeEnabled ? "1" : "0");
+  } catch {
+    // ignore storage failures
+  }
+}
+
+function applyLiveModePolling() {
+  stopOwnerPolling();
+  if (!state.liveModeEnabled || state.user?.role !== "owner") return;
+  ownerPollTimer = setInterval(async () => {
+    if (document.hidden || state.isLoadingOwnerData) return;
+    await loadOwnerData();
+  }, OWNER_POLL_INTERVAL_MS);
+}
+
+function toggleLiveMode(enabled) {
+  state.liveModeEnabled = Boolean(enabled);
+  persistLiveModePreference();
+  renderOwnerSession();
+  applyLiveModePolling();
+}
+
 async function setOwnerMode(mode, loadingText) {
   state.mode = mode;
   state.page = 1;
   state.selectedIds.clear();
   renderOwnerSession();
-  await loadOwnerData({ showOverlay: true, loadingText, showRefreshStatus: true, preferCache: true });
+  await loadOwnerData({ showOverlay: true, loadingText, showRefreshStatus: false, preferCache: false });
 }
 
 async function runCustomerSearch(searchTerm) {
@@ -859,12 +899,7 @@ function stopOwnerPolling() {
 }
 
 function startOwnerPolling() {
-  stopOwnerPolling();
-  if (state.user?.role !== "owner") return;
-  ownerPollTimer = setInterval(async () => {
-    if (document.hidden || state.isLoadingOwnerData) return;
-    await loadOwnerData();
-  }, OWNER_POLL_INTERVAL_MS);
+  applyLiveModePolling();
 }
 
 async function saveDetailChanges(transactionId, approveAfterSave) {
@@ -946,6 +981,7 @@ async function logoutOwner() {
 }
 
 async function loadSession() {
+  loadLiveModePreference();
   const payload = await apiFetch("/api/auth/me");
   state.user = payload.user;
   if (state.user?.role === "customer") {
@@ -963,6 +999,7 @@ async function loadSession() {
 async function loginOwnerFromMembershipToken(token) {
   resetError();
   try {
+    loadLiveModePreference();
     const payload = await apiFetch("/api/auth/membership-login", {
       method: "POST",
       body: JSON.stringify({ token }),
@@ -1081,6 +1118,14 @@ batchApproveButton.addEventListener("click", async () => {
 mobileMenuBatchApproveButton.addEventListener("click", async () => {
   mobileOwnerMenuDialog.close();
   await runBatchApprove();
+});
+
+liveModeButton.addEventListener("click", () => {
+  toggleLiveMode(!state.liveModeEnabled);
+});
+
+mobileMenuLiveModeButton.addEventListener("click", () => {
+  toggleLiveMode(!state.liveModeEnabled);
 });
 
 async function updateAutoApproveSettings(autoApproveEnabled) {
@@ -1222,6 +1267,6 @@ window.addEventListener("load", async () => {
 });
 
 document.addEventListener("visibilitychange", async () => {
-  if (document.hidden || state.user?.role !== "owner") return;
+  if (document.hidden || state.user?.role !== "owner" || !state.liveModeEnabled) return;
   await loadOwnerData();
 });

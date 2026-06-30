@@ -278,6 +278,10 @@ td {
   align-items: center;
 }
 
+.owner-login-entry {
+  margin-top: 16px;
+}
+
 .owner-hero {
   align-items: flex-start;
 }
@@ -303,6 +307,21 @@ td {
 .header-session {
   flex-wrap: wrap;
   justify-content: flex-end;
+}
+
+.compact-toggle-button {
+  padding: 10px 14px;
+}
+
+.active-live-toggle {
+  background: #188038;
+  color: #fff;
+  box-shadow: 0 8px 18px rgba(24, 128, 56, 0.22);
+}
+
+.mobile-fab,
+.mobile-owner-nav {
+  display: none;
 }
 
 .notification-badge {
@@ -1154,10 +1173,13 @@ body.has-bottom-bar .compact-page {
 
 .image-dialog {
   width: min(92vw, 960px);
+  max-width: calc(100vw - 16px);
   border: 0;
   border-radius: 24px;
   padding: 16px;
   box-shadow: 0 24px 50px rgba(0, 0, 0, 0.25);
+  box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 .image-dialog::backdrop {
@@ -1171,6 +1193,18 @@ body.has-bottom-bar .compact-page {
   display: block;
   border-radius: 16px;
   margin-top: 10px;
+}
+
+.owner-detail-content,
+.owner-item-grid {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.owner-item-grid > span,
+.owner-item-grid > label {
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 @keyframes spin {

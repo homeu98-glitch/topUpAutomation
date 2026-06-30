@@ -17,11 +17,11 @@
         <div class="owner-hero-actions">
           <div id="ownerHeaderSession" class="header-session hidden">
             <span id="ownerShopBadge" class="pill">未登入</span>
+            <button id="liveModeButton" class="secondary-button compact-toggle-button" type="button">Live Mode: Off</button>
             <span id="ownerLoginBadge" class="pill subtle-pill">-</span>
             <button id="autoApproveButton" class="secondary-button" type="button">設定自動核准</button>
             <button id="ownerLogoutButton" class="secondary-button" type="button">登出</button>
           </div>
-          <a class="secondary-button nav-link" href="/">客戶入口</a>
         </div>
       </header>
 
@@ -43,6 +43,9 @@
           <input id="ownerLoginInput" class="text-input" type="text" inputmode="numeric" maxlength="8" placeholder="8 位店主帳號，例如 60000000" />
           <input id="ownerPasswordInput" class="text-input" type="password" inputmode="numeric" maxlength="4" placeholder="4 位密碼，例如 0000" />
           <button id="ownerLoginButton" class="primary-button" type="button">登入後台</button>
+        </div>
+        <div class="owner-login-entry">
+          <a class="secondary-button nav-link" href="/">客戶入口</a>
         </div>
       </section>
 
@@ -168,6 +171,7 @@
           </div>
         </div>
         <div class="mobile-owner-menu-actions">
+          <button id="mobileMenuLiveModeButton" class="secondary-button" type="button">Live Mode: Off</button>
           <button id="mobileMenuAutoApproveButton" class="secondary-button" type="button">設定自動核准</button>
           <button id="mobileMenuRefreshButton" class="secondary-button" type="button">重新整理</button>
           <button id="mobileMenuBatchApproveButton" class="primary-button" type="button">批次核准</button>

@@ -22,6 +22,7 @@ const state = {
   dashboardStats: null,
   dashboardLoadedAt: 0,
   settingsLoadedAt: 0,
+  transactionCache: new Map(),
 };
 const OWNER_POLL_INTERVAL_MS = 3000;
 const OWNER_META_CACHE_MS = 30000;
@@ -53,6 +54,7 @@ const pendingTabButton = document.getElementById("pendingTabButton");
 const historyTabButton = document.getElementById("historyTabButton");
 const dashboardCards = document.getElementById("dashboardCards");
 const transactionTableBody = document.getElementById("transactionTableBody");
+const transactionList = document.getElementById("transactionList");
 const selectAllCheckbox = document.getElementById("selectAllCheckbox");
 const prevPageButton = document.getElementById("prevPageButton");
 const nextPageButton = document.getElementById("nextPageButton");
@@ -370,10 +372,81 @@ function renderPagination() {
   nextPageButton.disabled = state.page >= state.pageCount || state.pageSize === "all";
 }
 
+function getActiveTransactionMode() {
+  return state.searchTerm ? "all" : state.mode;
+}
+
+function buildTransactionCacheKey({ mode = getActiveTransactionMode(), page = state.page, pageSize = state.pageSize, searchTerm = state.searchTerm } = {}) {
+  return JSON.stringify({ mode, page, pageSize, searchTerm: searchTerm || "" });
+}
+
+function writeTransactionCache(key, payload) {
+  state.transactionCache.set(key, { ...payload, cachedAt: Date.now() });
+  if (state.transactionCache.size <= 12) return;
+  const oldestKey = [...state.transactionCache.entries()].sort((a, b) => (a[1].cachedAt || 0) - (b[1].cachedAt || 0))[0]?.[0];
+  if (oldestKey) state.transactionCache.delete(oldestKey);
+}
+
+function applyTransactionPayload(payload, options = {}) {
+  state.transactions = payload.rows || [];
+  state.total = payload.total || 0;
+  state.pageCount = payload.pageCount || 1;
+  state.page = payload.page || 1;
+  if (typeof payload.pendingCount === "number") {
+    state.pendingCount = payload.pendingCount;
+  }
+  renderOwnerSession();
+  renderTransactions(state.transactions);
+  if (options.cacheKey) {
+    writeTransactionCache(options.cacheKey, {
+      rows: state.transactions,
+      total: state.total,
+      pageCount: state.pageCount,
+      page: state.page,
+      pendingCount: state.pendingCount,
+    });
+  }
+}
+
+function renderCachedCurrentTransactions() {
+  const cached = state.transactionCache.get(buildTransactionCacheKey());
+  if (!cached) return false;
+  applyTransactionPayload(cached);
+  return true;
+}
+
+async function prefetchOwnerMode(mode) {
+  if (state.searchTerm || state.page !== 1 || state.pageSize === "all") return;
+  const cacheKey = buildTransactionCacheKey({ mode, page: 1, pageSize: state.pageSize, searchTerm: "" });
+  if (state.transactionCache.has(cacheKey)) return;
+  try {
+    const query = new URLSearchParams({
+      mode,
+      page: "1",
+      pageSize: String(state.pageSize),
+    });
+    const payload = await apiFetch(`/api/owner/transactions?${query.toString()}`);
+    writeTransactionCache(cacheKey, {
+      rows: payload.rows || [],
+      total: payload.total || 0,
+      pageCount: payload.pageCount || 1,
+      page: payload.page || 1,
+      pendingCount: state.pendingCount,
+    });
+  } catch {
+    // ignore prefetch failures
+  }
+}
+
+function invalidateTransactionCache() {
+  state.transactionCache.clear();
+}
+
 function renderTransactions(transactions) {
   if (!transactions.length) {
     const emptyLabel = state.searchTerm ? "搜尋結果" : state.mode === "pending" ? "待審核" : "歷史";
     transactionTableBody.innerHTML = `<tr><td colspan="8"><div class="empty-state">目前沒有${emptyLabel}資料。</div></td></tr>`;
+    transactionList.innerHTML = `<div class="empty-state">目前沒有${emptyLabel}資料。</div>`;
     renderPagination();
     selectAllCheckbox.checked = false;
     batchApproveButton.disabled = true;
@@ -443,6 +516,67 @@ function renderTransactions(transactions) {
     )
     .join("");
 
+  transactionList.innerHTML = transactions
+    .map(
+      (transaction) => `
+        <article class="owner-mobile-card">
+          <div class="owner-mobile-card-head">
+            <div>
+              <div class="summary-label">提交時間</div>
+              <div class="owner-mobile-time">${formatDateTime(transaction.submitted_at)}</div>
+            </div>
+            <div class="status-stack">
+              <span class="pill ${transaction.status === "approved" ? "approved-pill" : transaction.status === "rejected" ? "rejected-pill" : ""}">${transaction.status === "approved" ? "已核准" : transaction.status === "rejected" ? "已拒絕" : "待審核"}</span>
+              ${
+                transaction.verificationStatus === "verified"
+                  ? `<span class="verified-tag">Matched</span>`
+                  : transaction.verificationStatus === "no_match"
+                    ? `<span class="no-match-tag">Unmatch</span>`
+                    : ""
+              }
+            </div>
+          </div>
+          <div class="owner-mobile-meta">
+            <div class="owner-mobile-meta-card"><span class="summary-label">會員編號</span><strong>${transaction.customer_code}</strong></div>
+            <div class="owner-mobile-meta-card"><span class="summary-label">圖片數</span><strong>${transaction.item_count}</strong></div>
+            <div class="owner-mobile-meta-card"><span class="summary-label">總額</span><strong>${formatCurrency(transaction.total_amount)}</strong></div>
+          </div>
+          <div class="owner-mobile-thumb-row">
+            ${(transaction.items || [])
+              .map(
+                (item, index) => `
+                  <div class="thumb-with-amount ${
+                    item?.verificationStatus === "verified"
+                      ? "verified-item"
+                      : item?.verificationStatus === "no_match"
+                        ? "no-match-item"
+                        : ""
+                  }">
+                    <button class="thumb-button" type="button" data-src="${item.previewUrl}" data-alt="交易明細 ${index + 1}" data-verification-status="${item?.verificationStatus || ""}">
+                      <img src="${item.previewUrl}" alt="交易明細 ${index + 1}" />
+                    </button>
+                    <span class="thumb-amount">${formatCurrency(item?.selectedAmount || item?.manualAmount || item?.extracted?.amount)}</span>
+                  </div>
+                `
+              )
+              .join("")}
+          </div>
+          ${
+            transaction.status === "pending"
+              ? `<label class="owner-mobile-select"><input class="row-checkbox" data-id="${transaction.id}" type="checkbox" ${state.selectedIds.has(transaction.id) ? "checked" : ""} /> 批次選取</label>`
+              : ""
+          }
+          <div class="table-actions owner-mobile-actions">
+            <button class="secondary-button detail-button" data-id="${transaction.id}" type="button">明細</button>
+            ${transaction.status === "pending" ? `<button class="primary-button approve-button" data-id="${transaction.id}" type="button">核准</button>` : ""}
+            ${transaction.status === "pending" ? `<button class="secondary-button reject-button" data-id="${transaction.id}" type="button">拒絕</button>` : ""}
+            ${transaction.status === "rejected" ? `<button class="secondary-button revoke-button" data-id="${transaction.id}" type="button">撤回</button>` : ""}
+          </div>
+        </article>
+      `
+    )
+    .join("");
+
   renderPagination();
   selectAllCheckbox.checked =
     transactions.length > 0 &&
@@ -454,8 +588,13 @@ function renderTransactions(transactions) {
       showImageDialog(button.dataset.src, button.dataset.alt || "交易圖片", button.dataset.verificationStatus || "");
     });
   });
+  transactionList.querySelectorAll(".thumb-button").forEach((button) => {
+    button.addEventListener("click", () => {
+      showImageDialog(button.dataset.src, button.dataset.alt || "交易圖片", button.dataset.verificationStatus || "");
+    });
+  });
 
-  transactionTableBody.querySelectorAll(".detail-button").forEach((button) => {
+  [...transactionTableBody.querySelectorAll(".detail-button"), ...transactionList.querySelectorAll(".detail-button")].forEach((button) => {
     button.addEventListener("click", () => {
       const transaction = state.transactions.find((row) => row.id === button.dataset.id);
       if (transaction) {
@@ -464,7 +603,7 @@ function renderTransactions(transactions) {
     });
   });
 
-  transactionTableBody.querySelectorAll(".row-checkbox").forEach((checkbox) => {
+  [...transactionTableBody.querySelectorAll(".row-checkbox"), ...transactionList.querySelectorAll(".row-checkbox")].forEach((checkbox) => {
     checkbox.addEventListener("change", () => {
       if (checkbox.checked) {
         state.selectedIds.add(checkbox.dataset.id);
@@ -475,7 +614,7 @@ function renderTransactions(transactions) {
     });
   });
 
-  transactionTableBody.querySelectorAll(".approve-button").forEach((button) => {
+  [...transactionTableBody.querySelectorAll(".approve-button"), ...transactionList.querySelectorAll(".approve-button")].forEach((button) => {
     button.addEventListener("click", async () => {
       try {
         button.disabled = true;
@@ -483,6 +622,7 @@ function renderTransactions(transactions) {
           method: "POST",
           body: JSON.stringify({ transactionId: button.dataset.id }),
         });
+        invalidateTransactionCache();
         await loadOwnerData({ showOverlay: true, loadingText: "正在核准並刷新資料...", showRefreshStatus: true, refreshMeta: true });
       } catch (error) {
         showError(error instanceof Error ? error.message : "核准失敗");
@@ -491,7 +631,7 @@ function renderTransactions(transactions) {
     });
   });
 
-  transactionTableBody.querySelectorAll(".reject-button").forEach((button) => {
+  [...transactionTableBody.querySelectorAll(".reject-button"), ...transactionList.querySelectorAll(".reject-button")].forEach((button) => {
     button.addEventListener("click", async () => {
       try {
         button.disabled = true;
@@ -499,6 +639,7 @@ function renderTransactions(transactions) {
           method: "POST",
           body: JSON.stringify({ transactionId: button.dataset.id }),
         });
+        invalidateTransactionCache();
         await loadOwnerData({ showOverlay: true, loadingText: "正在拒絕並刷新資料...", showRefreshStatus: true, refreshMeta: true });
       } catch (error) {
         showError(error instanceof Error ? error.message : "拒絕失敗");
@@ -507,7 +648,7 @@ function renderTransactions(transactions) {
     });
   });
 
-  transactionTableBody.querySelectorAll(".revoke-button").forEach((button) => {
+  [...transactionTableBody.querySelectorAll(".revoke-button"), ...transactionList.querySelectorAll(".revoke-button")].forEach((button) => {
     button.addEventListener("click", async () => {
       try {
         button.disabled = true;
@@ -515,6 +656,7 @@ function renderTransactions(transactions) {
           method: "POST",
           body: JSON.stringify({ transactionId: button.dataset.id }),
         });
+        invalidateTransactionCache();
         await loadOwnerData({ showOverlay: true, loadingText: "正在撤回並刷新資料...", showRefreshStatus: true, refreshMeta: true });
       } catch (error) {
         showError(error instanceof Error ? error.message : "撤回失敗");
@@ -545,11 +687,14 @@ async function loadOwnerData(options = {}) {
     showRefreshStatus = false,
     runAutoApprove = false,
     refreshMeta = false,
+    preferCache = false,
   } = options;
+
+  const shouldUseCachedRender = preferCache && !refreshMeta && renderCachedCurrentTransactions();
 
   if (state.isLoadingOwnerData) return;
   state.isLoadingOwnerData = true;
-  if (showOverlay) {
+  if (showOverlay && !shouldUseCachedRender) {
     setOwnerLoading(true, loadingText);
   }
   resetError();
@@ -564,6 +709,7 @@ async function loadOwnerData(options = {}) {
     ...Object.fromEntries(params),
     mode: state.searchTerm ? "all" : state.mode,
   });
+  const cacheKey = buildTransactionCacheKey();
 
   try {
     const now = Date.now();
@@ -572,7 +718,7 @@ async function loadOwnerData(options = {}) {
     let sweepResult = { approvedCount: 0 };
     if (runAutoApprove && state.autoApproveEnabled) {
       sweepResult = await runOwnerAutoApprovalSweep();
-      if ((sweepResult.approvedCount || 0) > 0 && !showOverlay) {
+      if ((sweepResult.approvedCount || 0) > 0 && (!showOverlay || shouldUseCachedRender)) {
         setOwnerLoading(true, "自動核准中，正在刷新資料...");
       }
     }
@@ -594,11 +740,17 @@ async function loadOwnerData(options = {}) {
       state.settingsLoadedAt = Date.now();
     }
     renderDashboard(state.dashboardStats);
-    state.transactions = transactionsPayload.rows || [];
-    state.total = transactionsPayload.total || 0;
-    state.pageCount = transactionsPayload.pageCount || 1;
-    state.page = transactionsPayload.page || 1;
     state.pendingCount = pendingPayload.total || 0;
+    applyTransactionPayload(
+      {
+        rows: transactionsPayload.rows || [],
+        total: transactionsPayload.total || 0,
+        pageCount: transactionsPayload.pageCount || 1,
+        page: transactionsPayload.page || 1,
+        pendingCount: state.pendingCount,
+      },
+      { cacheKey }
+    );
     if (!state.autoApproveEnabled) {
       state.autoApproveRemainingSeconds = 0;
       stopAutoApproveCountdown();
@@ -607,13 +759,14 @@ async function loadOwnerData(options = {}) {
     }
     syncAutoApproveDialog();
     renderOwnerSession();
-    renderTransactions(state.transactions);
 
     if ((sweepResult.approvedCount || 0) > 0) {
       showStatus(`已自動核准 ${sweepResult.approvedCount} 筆，列表已刷新`, 2500);
     } else if (showRefreshStatus) {
       showStatus("列表已刷新", 1800);
     }
+    const alternateMode = state.mode === "pending" ? "history" : "pending";
+    prefetchOwnerMode(alternateMode);
     return true;
   } catch (error) {
     showError(error instanceof Error ? error.message : "讀取資料失敗");
@@ -666,6 +819,7 @@ async function saveDetailChanges(transactionId, approveAfterSave) {
     }
 
     ownerDetailDialog.close();
+    invalidateTransactionCache();
     await loadOwnerData({ showOverlay: true, loadingText: "正在刷新資料...", showRefreshStatus: true, refreshMeta: true });
   } catch (error) {
     showError(error instanceof Error ? error.message : "儲存修改失敗");
@@ -701,6 +855,7 @@ async function logoutOwner() {
   stopOwnerPolling();
   stopAutoApproveCountdown();
   await apiFetch("/api/auth/logout", { method: "POST" });
+  invalidateTransactionCache();
   state.user = null;
   state.searchTerm = "";
   customerSearchInput.value = "";
@@ -763,7 +918,7 @@ pendingTabButton.addEventListener("click", async () => {
   state.selectedIds.clear();
   pendingTabButton.classList.add("active");
   historyTabButton.classList.remove("active");
-  await loadOwnerData({ showOverlay: true, loadingText: "正在刷新待審核資料...", showRefreshStatus: true });
+  await loadOwnerData({ showOverlay: true, loadingText: "正在刷新待審核資料...", showRefreshStatus: true, preferCache: true });
 });
 
 historyTabButton.addEventListener("click", async () => {
@@ -772,7 +927,7 @@ historyTabButton.addEventListener("click", async () => {
   state.selectedIds.clear();
   historyTabButton.classList.add("active");
   pendingTabButton.classList.remove("active");
-  await loadOwnerData({ showOverlay: true, loadingText: "正在刷新歷史紀錄...", showRefreshStatus: true });
+  await loadOwnerData({ showOverlay: true, loadingText: "正在刷新歷史紀錄...", showRefreshStatus: true, preferCache: true });
 });
 
 pageSizeSelect.addEventListener("change", async () => {
@@ -839,6 +994,7 @@ batchApproveButton.addEventListener("click", async () => {
       body: JSON.stringify({ transactionIds: [...state.selectedIds] }),
     });
     state.selectedIds.clear();
+    invalidateTransactionCache();
     await loadOwnerData({ showOverlay: true, loadingText: "正在批次核准並刷新資料...", showRefreshStatus: true, refreshMeta: true });
   } catch (error) {
     showError(error instanceof Error ? error.message : "批次核准失敗");
@@ -895,6 +1051,7 @@ disableAutoApproveButton.addEventListener("click", async () => {
 ownerLoginButton.addEventListener("click", loginOwner);
 ownerLogoutButton.addEventListener("click", logoutOwner);
 refreshDashboardButton.addEventListener("click", async () => {
+  invalidateTransactionCache();
   await loadOwnerData({ showOverlay: true, loadingText: "正在刷新資料...", showRefreshStatus: true, runAutoApprove: true, refreshMeta: true });
 });
 ownerCloseDialogButton.addEventListener("click", () => ownerImageDialog.close());

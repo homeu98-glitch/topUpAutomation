@@ -1,0 +1,143 @@
+.owner-page .table-wrapper {
+  display: none;
+}
+
+.owner-page #transactionList {
+  display: grid !important;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.owner-page .pagination-bar {
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.owner-page .list-toolbar {
+  gap: 14px;
+}
+
+.owner-page .tab-bar {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.owner-page .tab-button {
+  width: 100%;
+  justify-content: center;
+}
+
+.owner-page .owner-toolbar-actions,
+.owner-page .search-box {
+  width: 100%;
+}
+
+.owner-page .search-box .text-input,
+.owner-page .search-box button,
+.owner-page .page-size-picker,
+.owner-page .page-size-picker select,
+.owner-page #batchApproveButton,
+.owner-page #refreshDashboardButton,
+.owner-page #autoApproveButton,
+.owner-page #ownerLogoutButton,
+.owner-page .nav-link {
+  width: 100%;
+}
+
+.owner-page .dashboard-grid {
+  grid-template-columns: 1fr;
+}
+
+.owner-page .owner-mobile-card {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid #e6ebf2;
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+}
+
+.owner-page .owner-mobile-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.owner-page .owner-mobile-time {
+  margin-top: 4px;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.owner-page .owner-mobile-meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.owner-page .owner-mobile-meta-card {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border-radius: 16px;
+  background: #f8fafc;
+  border: 1px solid #e6ebf2;
+}
+
+.owner-page .owner-mobile-meta-card strong {
+  font-size: 15px;
+  color: #111827;
+  word-break: break-word;
+}
+
+.owner-page .owner-mobile-thumb-row {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.owner-page .owner-mobile-thumb-row .thumb-with-amount {
+  min-width: 72px;
+}
+
+.owner-page .owner-mobile-select {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.owner-page .owner-mobile-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.owner-page .owner-mobile-actions .secondary-button,
+.owner-page .owner-mobile-actions .primary-button {
+  width: 100%;
+}
+
+.owner-page .owner-detail-content .owner-item-grid {
+  gap: 10px;
+}
+
+.owner-page .owner-detail-content .owner-item-grid > span,
+.owner-page .owner-detail-content .owner-item-grid > label {
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: #f8fafc;
+  border: 1px solid #e6ebf2;
+}
+
+.owner-page .detail-dialog,
+.owner-page .image-dialog {
+  width: min(100vw - 20px, 720px);
+  padding: 18px;
+}

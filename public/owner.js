@@ -158,7 +158,7 @@ function showDetailDialog(transaction) {
       transaction.verificationStatus === "verified"
         ? `<div class="verified-banner">Verified</div>`
         : transaction.verificationStatus === "invalid"
-          ? `<div class="failed-banner">Not Verified（狀態：${transaction.mpayTransactionStatus || "-"}）</div>`
+          ? `<div class="failed-banner">Not Verified</div>`
           : transaction.verificationStatus === "no_match"
             ? `<div class="no-match-banner">No Match</div>`
           : ""
@@ -184,14 +184,14 @@ function showDetailDialog(transaction) {
               </div>
               <div class="owner-item-grid">
                 <button class="thumb-button detail-thumb-button ${
-                  transaction.verificationStatus === "verified"
+                  item?.verificationStatus === "verified"
                     ? "verified-thumb"
-                    : transaction.verificationStatus === "invalid"
+                    : item?.verificationStatus === "invalid"
                       ? "failed-thumb"
-                      : transaction.verificationStatus === "no_match"
+                      : item?.verificationStatus === "no_match"
                         ? "no-match-thumb"
                       : ""
-                }" type="button" data-src="${item.previewUrl}" data-alt="交易明細 ${index + 1}" data-verification-status="${transaction.verificationStatus || ""}">
+                }" type="button" data-src="${item.previewUrl}" data-alt="交易明細 ${index + 1}" data-verification-status="${item?.verificationStatus || ""}">
                   <img src="${item.previewUrl}" alt="交易明細 ${index + 1}" />
                 </button>
                 <span>客戶提交金額：${formatCurrency(item?.selectedAmount || item?.manualAmount || item?.extracted?.amount)}</span>
@@ -201,6 +201,15 @@ function showDetailDialog(transaction) {
                 </label>
                 <span>商戶：${item?.extracted?.merchantName || "-"}</span>
                 <span>訂單號：${item?.extracted?.transactionOrderNo || "-"}</span>
+                <span>核對結果：${
+                  item?.verificationStatus === "verified"
+                    ? "Verified"
+                    : item?.verificationStatus === "invalid"
+                      ? `Not Verified（狀態：${item?.mpayTransactionStatus || "-"}）`
+                      : item?.verificationStatus === "no_match"
+                        ? "No Match"
+                        : "-"
+                }</span>
                 <span>金額：${item?.extracted?.amount || "-"}</span>
                 <span>時間：${item?.extracted?.transactionTime || "-"}</span>
                 <span>狀態：${item?.extracted?.orderStatus || "-"}</span>
@@ -381,15 +390,15 @@ function renderTransactions(transactions) {
               .map(
                 (item, index) => `
                   <div class="thumb-with-amount ${
-                    transaction.verificationStatus === "verified"
+                    item?.verificationStatus === "verified"
                       ? "verified-item"
-                      : transaction.verificationStatus === "invalid"
+                      : item?.verificationStatus === "invalid"
                         ? "failed-item"
-                        : transaction.verificationStatus === "no_match"
+                        : item?.verificationStatus === "no_match"
                           ? "no-match-item"
                         : ""
                   }">
-                    <button class="thumb-button" type="button" data-src="${item.previewUrl}" data-alt="交易明細 ${index + 1}" data-verification-status="${transaction.verificationStatus || ""}">
+                    <button class="thumb-button" type="button" data-src="${item.previewUrl}" data-alt="交易明細 ${index + 1}" data-verification-status="${item?.verificationStatus || ""}">
                       <img src="${item.previewUrl}" alt="交易明細 ${index + 1}" />
                     </button>
                     <span class="thumb-amount">${formatCurrency(item?.selectedAmount || item?.manualAmount || item?.extracted?.amount)}</span>

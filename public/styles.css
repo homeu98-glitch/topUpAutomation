@@ -931,6 +931,57 @@ th {
   font-weight: 800;
 }
 
+.failed-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(217, 48, 37, 0.35);
+  background: rgba(217, 48, 37, 0.12);
+  color: #d93025;
+  font-weight: 800;
+  font-size: 12px;
+}
+
+.failed-item .thumb-button {
+  border: 2px solid #d93025;
+}
+
+.failed-item .thumb-amount {
+  border: 2px solid #d93025;
+  border-radius: 12px;
+  padding: 2px 8px;
+  background: rgba(217, 48, 37, 0.08);
+  color: #d93025;
+}
+
+.failed-banner {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(217, 48, 37, 0.35);
+  background: rgba(217, 48, 37, 0.08);
+  color: #d93025;
+  font-weight: 800;
+}
+
+.failed-thumb {
+  border: 2px solid #d93025 !important;
+}
+
+.failed-amount {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 12px;
+  border: 2px solid #d93025;
+  background: rgba(217, 48, 37, 0.08);
+  color: #d93025;
+  font-weight: 800;
+}
+
 .thumb-button {
   width: 52px;
   height: 52px;

@@ -150,7 +150,13 @@ function showDetailDialog(transaction) {
       <h3>交易明細</h3>
       <span class="pill">${transaction.customer_code}</span>
     </div>
-    ${transaction.isVerified ? `<div class="verified-banner">Verified</div>` : ""}
+    ${
+      transaction.verificationStatus === "verified"
+        ? `<div class="verified-banner">Verified</div>`
+        : transaction.verificationStatus === "invalid"
+          ? `<div class="failed-banner">Not Verified（狀態：${transaction.mpayTransactionStatus || "-"}）</div>`
+          : ""
+    }
     <div class="detail-edit-summary">
       <label class="edit-field prominent-edit-field">
         <span>總金額</span>
@@ -171,10 +177,22 @@ function showDetailDialog(transaction) {
                 <span class="pill">${formatCurrency(item?.extracted?.amount)}</span>
               </div>
               <div class="owner-item-grid">
-                <button class="thumb-button detail-thumb-button ${transaction.isVerified ? "verified-thumb" : ""}" type="button" data-src="${item.previewUrl}" data-alt="交易明細 ${index + 1}">
+                <button class="thumb-button detail-thumb-button ${
+                  transaction.verificationStatus === "verified"
+                    ? "verified-thumb"
+                    : transaction.verificationStatus === "invalid"
+                      ? "failed-thumb"
+                      : ""
+                }" type="button" data-src="${item.previewUrl}" data-alt="交易明細 ${index + 1}">
                   <img src="${item.previewUrl}" alt="交易明細 ${index + 1}" />
                 </button>
-                <span class="${transaction.isVerified ? "verified-amount" : ""}">客戶提交金額：${formatCurrency(item?.selectedAmount || item?.manualAmount || item?.extracted?.amount)}</span>
+                <span class="${
+                  transaction.verificationStatus === "verified"
+                    ? "verified-amount"
+                    : transaction.verificationStatus === "invalid"
+                      ? "failed-amount"
+                      : ""
+                }">客戶提交金額：${formatCurrency(item?.selectedAmount || item?.manualAmount || item?.extracted?.amount)}</span>
                 <label class="edit-field prominent-edit-field">
                   <span>可編輯金額</span>
                   <input class="text-input detail-amount-input" type="number" min="0" step="0.01" data-index="${index}" value="${Number(item?.extracted?.amount || 0).toFixed(2)}" />
@@ -359,7 +377,13 @@ function renderTransactions(transactions) {
               ${(transaction.items || [])
               .map(
                 (item, index) => `
-                  <div class="thumb-with-amount ${transaction.isVerified ? "verified-item" : ""}">
+                  <div class="thumb-with-amount ${
+                    transaction.verificationStatus === "verified"
+                      ? "verified-item"
+                      : transaction.verificationStatus === "invalid"
+                        ? "failed-item"
+                        : ""
+                  }">
                     <button class="thumb-button" type="button" data-src="${item.previewUrl}" data-alt="交易明細 ${index + 1}">
                       <img src="${item.previewUrl}" alt="交易明細 ${index + 1}" />
                     </button>
@@ -375,7 +399,13 @@ function renderTransactions(transactions) {
           <td>
             <div class="status-stack">
               <span class="pill ${transaction.status === "approved" ? "approved-pill" : transaction.status === "rejected" ? "rejected-pill" : ""}">${transaction.status === "approved" ? "已核准" : transaction.status === "rejected" ? "已拒絕" : "待審核"}</span>
-              ${transaction.isVerified ? `<span class="verified-tag">Verified</span>` : ""}
+              ${
+                transaction.verificationStatus === "verified"
+                  ? `<span class="verified-tag">Verified</span>`
+                  : transaction.verificationStatus === "invalid"
+                    ? `<span class="failed-tag">Not Verified</span>`
+                    : ""
+              }
               ${
                 (transaction.items || []).some((item) => item?.validation?.isAbnormal)
                   ? `<span class="warning-text">aborormal</span>`

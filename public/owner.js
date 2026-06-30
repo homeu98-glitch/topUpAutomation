@@ -201,6 +201,11 @@ function showDetailDialog(transaction) {
                 </label>
                 <span>商戶：${item?.extracted?.merchantName || "-"}</span>
                 <span>訂單號：${item?.extracted?.transactionOrderNo || "-"}</span>
+                <span>候選單號：${
+                  Array.isArray(item?.extracted?.allDetectedOrderNos) && item.extracted.allDetectedOrderNos.length
+                    ? item.extracted.allDetectedOrderNos.join(" / ")
+                    : "-"
+                }</span>
                 <span>核對結果：${
                   item?.verificationStatus === "verified"
                     ? "Verified"
@@ -210,6 +215,7 @@ function showDetailDialog(transaction) {
                         ? "No Match"
                         : "-"
                 }</span>
+                <span>匹配單號：${item?.verificationMatchedOrderNo || "-"}</span>
                 <span>金額：${item?.extracted?.amount || "-"}</span>
                 <span>時間：${item?.extracted?.transactionTime || "-"}</span>
                 <span>狀態：${item?.extracted?.orderStatus || "-"}</span>

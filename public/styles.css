@@ -880,6 +880,57 @@ th {
   max-width: 64px;
 }
 
+.verified-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(24, 128, 56, 0.35);
+  background: rgba(24, 128, 56, 0.12);
+  color: #188038;
+  font-weight: 800;
+  font-size: 12px;
+}
+
+.verified-item .thumb-button {
+  border: 2px solid #188038;
+}
+
+.verified-item .thumb-amount {
+  border: 2px solid #188038;
+  border-radius: 12px;
+  padding: 2px 8px;
+  background: rgba(24, 128, 56, 0.08);
+  color: #188038;
+}
+
+.verified-banner {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(24, 128, 56, 0.35);
+  background: rgba(24, 128, 56, 0.08);
+  color: #188038;
+  font-weight: 800;
+}
+
+.verified-thumb {
+  border: 2px solid #188038 !important;
+}
+
+.verified-amount {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 12px;
+  border: 2px solid #188038;
+  background: rgba(24, 128, 56, 0.08);
+  color: #188038;
+  font-weight: 800;
+}
+
 .thumb-button {
   width: 52px;
   height: 52px;

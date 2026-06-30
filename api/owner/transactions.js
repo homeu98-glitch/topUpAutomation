@@ -19,7 +19,7 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: "請先以店主身份登入" });
     }
 
-    const { mode, from, to, customerCode, page, pageSize } = req.query || {};
+    const { mode, from, to, customerCode, page, pageSize, countOnly } = req.query || {};
     const payload = await listTransactions({
       shopId: session.shopId,
       mode: String(mode || "pending"),
@@ -28,6 +28,7 @@ export default async function handler(req, res) {
       customerCode: String(customerCode || ""),
       page: String(page || "1"),
       pageSize: String(pageSize || "20"),
+      countOnly: String(countOnly || "") === "1",
     });
 
     return res.status(200).json(payload);

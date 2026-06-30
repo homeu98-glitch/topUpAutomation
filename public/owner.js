@@ -19,8 +19,12 @@ const state = {
   pendingCount: 0,
   isLoadingOwnerData: false,
   autoApproveRemainingSeconds: 0,
+  dashboardStats: null,
+  dashboardLoadedAt: 0,
+  settingsLoadedAt: 0,
 };
 const OWNER_POLL_INTERVAL_MS = 3000;
+const OWNER_META_CACHE_MS = 30000;
 let ownerPollTimer = null;
 let statusHideTimer = null;
 let autoApproveCountdownTimer = null;
@@ -347,6 +351,7 @@ function startAutoApproveCountdown() {
 }
 
 function renderDashboard(stats) {
+  if (!stats) return;
   dashboardCards.innerHTML = `
     <article class="card stat-card"><div class="summary-label">上傳筆數</div><div class="summary-value small-value">${stats.uploadCount}</div></article>
     <article class="card stat-card"><div class="summary-label">上傳客戶數</div><div class="summary-value small-value">${stats.customerCount}</div></article>
@@ -478,7 +483,7 @@ function renderTransactions(transactions) {
           method: "POST",
           body: JSON.stringify({ transactionId: button.dataset.id }),
         });
-        await loadOwnerData({ showOverlay: true, loadingText: "正在核准並刷新資料...", showRefreshStatus: true });
+        await loadOwnerData({ showOverlay: true, loadingText: "正在核准並刷新資料...", showRefreshStatus: true, refreshMeta: true });
       } catch (error) {
         showError(error instanceof Error ? error.message : "核准失敗");
         button.disabled = false;
@@ -494,7 +499,7 @@ function renderTransactions(transactions) {
           method: "POST",
           body: JSON.stringify({ transactionId: button.dataset.id }),
         });
-        await loadOwnerData({ showOverlay: true, loadingText: "正在拒絕並刷新資料...", showRefreshStatus: true });
+        await loadOwnerData({ showOverlay: true, loadingText: "正在拒絕並刷新資料...", showRefreshStatus: true, refreshMeta: true });
       } catch (error) {
         showError(error instanceof Error ? error.message : "拒絕失敗");
         button.disabled = false;
@@ -510,7 +515,7 @@ function renderTransactions(transactions) {
           method: "POST",
           body: JSON.stringify({ transactionId: button.dataset.id }),
         });
-        await loadOwnerData({ showOverlay: true, loadingText: "正在撤回並刷新資料...", showRefreshStatus: true });
+        await loadOwnerData({ showOverlay: true, loadingText: "正在撤回並刷新資料...", showRefreshStatus: true, refreshMeta: true });
       } catch (error) {
         showError(error instanceof Error ? error.message : "撤回失敗");
         button.disabled = false;
@@ -539,6 +544,7 @@ async function loadOwnerData(options = {}) {
     loadingText = "正在刷新資料...",
     showRefreshStatus = false,
     runAutoApprove = false,
+    refreshMeta = false,
   } = options;
 
   if (state.isLoadingOwnerData) return;
@@ -560,6 +566,9 @@ async function loadOwnerData(options = {}) {
   });
 
   try {
+    const now = Date.now();
+    const shouldRefreshDashboard = refreshMeta || !state.dashboardStats || now - state.dashboardLoadedAt > OWNER_META_CACHE_MS;
+    const shouldRefreshSettings = refreshMeta || !state.settingsLoadedAt || now - state.settingsLoadedAt > OWNER_META_CACHE_MS;
     let sweepResult = { approvedCount: 0 };
     if (runAutoApprove && state.autoApproveEnabled) {
       sweepResult = await runOwnerAutoApprovalSweep();
@@ -569,20 +578,27 @@ async function loadOwnerData(options = {}) {
     }
 
     const [dashboardPayload, transactionsPayload, settingsPayload, pendingPayload] = await Promise.all([
-      apiFetch(`/api/owner/dashboard?${params.toString()}`),
+      shouldRefreshDashboard ? apiFetch(`/api/owner/dashboard?${params.toString()}`) : Promise.resolve(null),
       apiFetch(`/api/owner/transactions?${transactionQuery.toString()}`),
-      apiFetch("/api/owner/settings"),
-      apiFetch("/api/owner/transactions?page=1&pageSize=1&mode=pending"),
+      shouldRefreshSettings ? apiFetch("/api/owner/settings") : Promise.resolve(null),
+      apiFetch("/api/owner/transactions?countOnly=1&mode=pending"),
     ]);
 
-    renderDashboard(dashboardPayload.stats);
+    if (dashboardPayload?.stats) {
+      state.dashboardStats = dashboardPayload.stats;
+      state.dashboardLoadedAt = Date.now();
+    }
+    if (settingsPayload?.settings) {
+      state.autoApproveEnabled = Boolean(settingsPayload.settings?.auto_approve_enabled);
+      state.autoApproveIntervalSeconds = Number(settingsPayload.settings?.auto_approve_interval_minutes || 300);
+      state.settingsLoadedAt = Date.now();
+    }
+    renderDashboard(state.dashboardStats);
     state.transactions = transactionsPayload.rows || [];
     state.total = transactionsPayload.total || 0;
     state.pageCount = transactionsPayload.pageCount || 1;
     state.page = transactionsPayload.page || 1;
     state.pendingCount = pendingPayload.total || 0;
-    state.autoApproveEnabled = Boolean(settingsPayload.settings?.auto_approve_enabled);
-    state.autoApproveIntervalSeconds = Number(settingsPayload.settings?.auto_approve_interval_minutes || 300);
     if (!state.autoApproveEnabled) {
       state.autoApproveRemainingSeconds = 0;
       stopAutoApproveCountdown();
@@ -650,7 +666,7 @@ async function saveDetailChanges(transactionId, approveAfterSave) {
     }
 
     ownerDetailDialog.close();
-    await loadOwnerData({ showOverlay: true, loadingText: "正在刷新資料...", showRefreshStatus: true });
+    await loadOwnerData({ showOverlay: true, loadingText: "正在刷新資料...", showRefreshStatus: true, refreshMeta: true });
   } catch (error) {
     showError(error instanceof Error ? error.message : "儲存修改失敗");
   }
@@ -690,6 +706,9 @@ async function logoutOwner() {
   customerSearchInput.value = "";
   state.pendingCount = 0;
   state.autoApproveRemainingSeconds = 0;
+  state.dashboardStats = null;
+  state.dashboardLoadedAt = 0;
+  state.settingsLoadedAt = 0;
   renderOwnerSession();
   transactionTableBody.innerHTML = "";
   dashboardCards.innerHTML = "";
@@ -820,7 +839,7 @@ batchApproveButton.addEventListener("click", async () => {
       body: JSON.stringify({ transactionIds: [...state.selectedIds] }),
     });
     state.selectedIds.clear();
-    await loadOwnerData({ showOverlay: true, loadingText: "正在批次核准並刷新資料...", showRefreshStatus: true });
+    await loadOwnerData({ showOverlay: true, loadingText: "正在批次核准並刷新資料...", showRefreshStatus: true, refreshMeta: true });
   } catch (error) {
     showError(error instanceof Error ? error.message : "批次核准失敗");
   } finally {
@@ -840,6 +859,7 @@ async function updateAutoApproveSettings(autoApproveEnabled) {
     state.autoApproveEnabled = autoApproveEnabled;
     state.autoApproveIntervalSeconds = intervalSeconds;
     state.autoApproveRemainingSeconds = autoApproveEnabled ? intervalSeconds : 0;
+    state.settingsLoadedAt = Date.now();
     syncAutoApproveDialog();
     renderOwnerSession();
     if (autoApproveEnabled) {
@@ -875,7 +895,7 @@ disableAutoApproveButton.addEventListener("click", async () => {
 ownerLoginButton.addEventListener("click", loginOwner);
 ownerLogoutButton.addEventListener("click", logoutOwner);
 refreshDashboardButton.addEventListener("click", async () => {
-  await loadOwnerData({ showOverlay: true, loadingText: "正在刷新資料...", showRefreshStatus: true, runAutoApprove: true });
+  await loadOwnerData({ showOverlay: true, loadingText: "正在刷新資料...", showRefreshStatus: true, runAutoApprove: true, refreshMeta: true });
 });
 ownerCloseDialogButton.addEventListener("click", () => ownerImageDialog.close());
 ownerCloseDetailButton.addEventListener("click", () => ownerDetailDialog.close());

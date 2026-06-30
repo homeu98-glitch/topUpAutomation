@@ -47,6 +47,17 @@
       </section>
 
       <main id="ownerApp" class="hidden">
+        <button id="mobileSearchFab" class="mobile-fab mobile-search-fab" type="button" aria-label="搜尋交易">🔍</button>
+        <button id="mobileMenuFab" class="mobile-fab mobile-menu-fab" type="button" aria-label="店主功能選單">☰</button>
+
+        <section class="mobile-owner-nav" aria-label="手機交易分頁">
+          <button id="mobilePendingTabButton" class="mobile-nav-button active" type="button">
+            待審核
+            <span id="mobilePendingTabBadge" class="notification-badge hidden">0</span>
+          </button>
+          <button id="mobileHistoryTabButton" class="mobile-nav-button" type="button">歷史記錄</button>
+        </section>
+
         <section id="dashboardCards" class="dashboard-grid"></section>
 
         <section class="card">
@@ -136,6 +147,45 @@
         <div class="detail-dialog-actions" style="margin-top: 16px;">
           <button id="disableAutoApproveButton" class="secondary-button" type="button">停止自動核准</button>
           <button id="confirmAutoApproveButton" class="primary-button" type="button">確認啟動</button>
+        </div>
+      </div>
+    </dialog>
+
+    <dialog id="mobileOwnerMenuDialog" class="image-dialog detail-dialog mobile-owner-dialog">
+      <button id="closeMobileOwnerMenuButton" class="dialog-close" type="button">關閉</button>
+      <div class="owner-detail-content">
+        <div class="section-header">
+          <h3>店主功能</h3>
+        </div>
+        <div class="mobile-owner-menu-grid">
+          <div class="mobile-owner-info-card">
+            <span class="summary-label">店舖名稱</span>
+            <strong id="mobileOwnerShopName">未登入</strong>
+          </div>
+          <div class="mobile-owner-info-card">
+            <span class="summary-label">店主帳號</span>
+            <strong id="mobileOwnerLogin">-</strong>
+          </div>
+        </div>
+        <div class="mobile-owner-menu-actions">
+          <button id="mobileMenuAutoApproveButton" class="secondary-button" type="button">設定自動核准</button>
+          <button id="mobileMenuRefreshButton" class="secondary-button" type="button">重新整理</button>
+          <button id="mobileMenuBatchApproveButton" class="primary-button" type="button">批次核准</button>
+          <button id="mobileMenuLogoutButton" class="secondary-button" type="button">登出</button>
+        </div>
+      </div>
+    </dialog>
+
+    <dialog id="mobileSearchDialog" class="image-dialog detail-dialog mobile-owner-dialog">
+      <button id="closeMobileSearchDialogButton" class="dialog-close" type="button">關閉</button>
+      <div class="owner-detail-content">
+        <div class="section-header">
+          <h3>搜尋客戶號碼</h3>
+        </div>
+        <div class="mobile-search-panel">
+          <input id="mobileCustomerSearchInput" class="text-input" type="text" inputmode="numeric" placeholder="輸入客戶號碼" />
+          <button id="mobileCustomerSearchButton" class="primary-button" type="button">搜尋</button>
+          <button id="mobileCustomerSearchClearButton" class="secondary-button" type="button">清除</button>
         </div>
       </div>
     </dialog>

@@ -36,6 +36,8 @@ const ownerAuthBootCard = document.getElementById("ownerAuthBootCard");
 const ownerHeaderSession = document.getElementById("ownerHeaderSession");
 const ownerLoginCard = document.getElementById("ownerLoginCard");
 const ownerApp = document.getElementById("ownerApp");
+const mobileSearchFab = document.getElementById("mobileSearchFab");
+const mobileMenuFab = document.getElementById("mobileMenuFab");
 const ownerLoginInput = document.getElementById("ownerLoginInput");
 const ownerPasswordInput = document.getElementById("ownerPasswordInput");
 const ownerLoginButton = document.getElementById("ownerLoginButton");
@@ -52,6 +54,9 @@ const batchApproveButton = document.getElementById("batchApproveButton");
 const refreshDashboardButton = document.getElementById("refreshDashboardButton");
 const pendingTabButton = document.getElementById("pendingTabButton");
 const historyTabButton = document.getElementById("historyTabButton");
+const mobilePendingTabButton = document.getElementById("mobilePendingTabButton");
+const mobileHistoryTabButton = document.getElementById("mobileHistoryTabButton");
+const mobilePendingTabBadge = document.getElementById("mobilePendingTabBadge");
 const dashboardCards = document.getElementById("dashboardCards");
 const transactionTableBody = document.getElementById("transactionTableBody");
 const transactionList = document.getElementById("transactionList");
@@ -66,13 +71,26 @@ const ownerDetailDialog = document.getElementById("ownerDetailDialog");
 const ownerDetailContent = document.getElementById("ownerDetailContent");
 const ownerCloseDetailButton = document.getElementById("ownerCloseDetailButton");
 const autoApproveDialog = document.getElementById("autoApproveDialog");
+const mobileOwnerMenuDialog = document.getElementById("mobileOwnerMenuDialog");
+const mobileSearchDialog = document.getElementById("mobileSearchDialog");
 const closeAutoApproveDialogButton = document.getElementById("closeAutoApproveDialogButton");
+const closeMobileOwnerMenuButton = document.getElementById("closeMobileOwnerMenuButton");
+const closeMobileSearchDialogButton = document.getElementById("closeMobileSearchDialogButton");
 const autoApproveStateBadge = document.getElementById("autoApproveStateBadge");
 const autoApproveIntervalInput = document.getElementById("autoApproveIntervalInput");
 const disableAutoApproveButton = document.getElementById("disableAutoApproveButton");
 const confirmAutoApproveButton = document.getElementById("confirmAutoApproveButton");
 const ownerLoadingOverlay = document.getElementById("ownerLoadingOverlay");
 const ownerLoadingText = document.getElementById("ownerLoadingText");
+const mobileOwnerShopName = document.getElementById("mobileOwnerShopName");
+const mobileOwnerLogin = document.getElementById("mobileOwnerLogin");
+const mobileMenuAutoApproveButton = document.getElementById("mobileMenuAutoApproveButton");
+const mobileMenuRefreshButton = document.getElementById("mobileMenuRefreshButton");
+const mobileMenuBatchApproveButton = document.getElementById("mobileMenuBatchApproveButton");
+const mobileMenuLogoutButton = document.getElementById("mobileMenuLogoutButton");
+const mobileCustomerSearchInput = document.getElementById("mobileCustomerSearchInput");
+const mobileCustomerSearchButton = document.getElementById("mobileCustomerSearchButton");
+const mobileCustomerSearchClearButton = document.getElementById("mobileCustomerSearchClearButton");
 
 function formatCurrency(value) {
   return `MOP ${Number(value || 0).toFixed(2)}`;
@@ -295,6 +313,8 @@ function renderOwnerSession() {
   if (!isLoggedIn) {
     ownerShopBadge.textContent = "未登入";
     ownerLoginBadge.textContent = "-";
+    mobileOwnerShopName.textContent = "未登入";
+    mobileOwnerLogin.textContent = "-";
     return;
   }
 
@@ -305,12 +325,65 @@ function renderOwnerSession() {
     : "設定自動核准";
   pendingTabBadge.textContent = String(state.pendingCount || 0);
   pendingTabBadge.classList.toggle("hidden", !state.pendingCount);
+  mobilePendingTabBadge.textContent = String(state.pendingCount || 0);
+  mobilePendingTabBadge.classList.toggle("hidden", !state.pendingCount);
+  mobilePendingTabButton.classList.toggle("active", state.mode === "pending");
+  mobileHistoryTabButton.classList.toggle("active", state.mode === "history");
+  pendingTabButton.classList.toggle("active", state.mode === "pending");
+  historyTabButton.classList.toggle("active", state.mode === "history");
+  mobileOwnerShopName.textContent = state.user.shopName || "未命名店舖";
+  mobileOwnerLogin.textContent = state.user.ownerLogin || "-";
+  mobileMenuBatchApproveButton.disabled = !state.selectedIds.size || (state.mode !== "pending" && !state.searchTerm);
+}
+
+async function setOwnerMode(mode, loadingText) {
+  state.mode = mode;
+  state.page = 1;
+  state.selectedIds.clear();
+  renderOwnerSession();
+  await loadOwnerData({ showOverlay: true, loadingText, showRefreshStatus: true, preferCache: true });
+}
+
+async function runCustomerSearch(searchTerm) {
+  const normalized = String(searchTerm || "").trim();
+  customerSearchInput.value = normalized;
+  mobileCustomerSearchInput.value = normalized;
+  state.searchTerm = normalized;
+  state.page = 1;
+  state.selectedIds.clear();
+  await loadOwnerData({ showOverlay: true, loadingText: normalized ? "正在搜尋資料..." : "正在刷新資料...", showRefreshStatus: true });
+}
+
+async function clearCustomerSearch() {
+  customerSearchInput.value = "";
+  mobileCustomerSearchInput.value = "";
+  await runCustomerSearch("");
 }
 
 function syncAutoApproveDialog() {
   autoApproveStateBadge.textContent = state.autoApproveEnabled ? "已啟用" : "未啟用";
   autoApproveIntervalInput.value = String(state.autoApproveIntervalSeconds || 300);
   disableAutoApproveButton.classList.toggle("hidden", !state.autoApproveEnabled);
+}
+
+async function runBatchApprove() {
+  if (!state.selectedIds.size) return;
+  try {
+    batchApproveButton.disabled = true;
+    mobileMenuBatchApproveButton.disabled = true;
+    await apiFetch("/api/owner/batch-approve", {
+      method: "POST",
+      body: JSON.stringify({ transactionIds: [...state.selectedIds] }),
+    });
+    state.selectedIds.clear();
+    invalidateTransactionCache();
+    await loadOwnerData({ showOverlay: true, loadingText: "正在批次核准並刷新資料...", showRefreshStatus: true, refreshMeta: true });
+  } catch (error) {
+    showError(error instanceof Error ? error.message : "批次核准失敗");
+  } finally {
+    batchApproveButton.disabled = false;
+    mobileMenuBatchApproveButton.disabled = false;
+  }
 }
 
 function stopAutoApproveCountdown() {
@@ -611,6 +684,7 @@ function renderTransactions(transactions) {
         state.selectedIds.delete(checkbox.dataset.id);
       }
       batchApproveButton.disabled = !state.selectedIds.size || state.mode !== "pending";
+      renderOwnerSession();
     });
   });
 
@@ -913,21 +987,19 @@ async function loginOwnerFromMembershipToken(token) {
 }
 
 pendingTabButton.addEventListener("click", async () => {
-  state.mode = "pending";
-  state.page = 1;
-  state.selectedIds.clear();
-  pendingTabButton.classList.add("active");
-  historyTabButton.classList.remove("active");
-  await loadOwnerData({ showOverlay: true, loadingText: "正在刷新待審核資料...", showRefreshStatus: true, preferCache: true });
+  await setOwnerMode("pending", "正在刷新待審核資料...");
 });
 
 historyTabButton.addEventListener("click", async () => {
-  state.mode = "history";
-  state.page = 1;
-  state.selectedIds.clear();
-  historyTabButton.classList.add("active");
-  pendingTabButton.classList.remove("active");
-  await loadOwnerData({ showOverlay: true, loadingText: "正在刷新歷史紀錄...", showRefreshStatus: true, preferCache: true });
+  await setOwnerMode("history", "正在刷新歷史紀錄...");
+});
+
+mobilePendingTabButton.addEventListener("click", async () => {
+  await setOwnerMode("pending", "正在刷新待審核資料...");
+});
+
+mobileHistoryTabButton.addEventListener("click", async () => {
+  await setOwnerMode("history", "正在刷新歷史紀錄...");
 });
 
 pageSizeSelect.addEventListener("change", async () => {
@@ -938,26 +1010,42 @@ pageSizeSelect.addEventListener("change", async () => {
 });
 
 customerSearchButton.addEventListener("click", async () => {
-  state.searchTerm = customerSearchInput.value.trim();
-  state.page = 1;
-  state.selectedIds.clear();
-  await loadOwnerData({ showOverlay: true, loadingText: "正在搜尋資料...", showRefreshStatus: true });
+  await runCustomerSearch(customerSearchInput.value);
 });
 
 customerSearchInput.addEventListener("keydown", async (event) => {
   if (event.key !== "Enter") return;
-  state.searchTerm = customerSearchInput.value.trim();
-  state.page = 1;
-  state.selectedIds.clear();
-  await loadOwnerData({ showOverlay: true, loadingText: "正在搜尋資料...", showRefreshStatus: true });
+  await runCustomerSearch(customerSearchInput.value);
 });
 
 customerSearchClearButton.addEventListener("click", async () => {
-  customerSearchInput.value = "";
-  state.searchTerm = "";
-  state.page = 1;
-  state.selectedIds.clear();
-  await loadOwnerData({ showOverlay: true, loadingText: "正在刷新資料...", showRefreshStatus: true });
+  await clearCustomerSearch();
+});
+
+mobileSearchFab.addEventListener("click", () => {
+  mobileCustomerSearchInput.value = customerSearchInput.value;
+  mobileSearchDialog.showModal();
+});
+
+mobileMenuFab.addEventListener("click", () => {
+  renderOwnerSession();
+  mobileOwnerMenuDialog.showModal();
+});
+
+mobileCustomerSearchButton.addEventListener("click", async () => {
+  await runCustomerSearch(mobileCustomerSearchInput.value);
+  mobileSearchDialog.close();
+});
+
+mobileCustomerSearchInput.addEventListener("keydown", async (event) => {
+  if (event.key !== "Enter") return;
+  await runCustomerSearch(mobileCustomerSearchInput.value);
+  mobileSearchDialog.close();
+});
+
+mobileCustomerSearchClearButton.addEventListener("click", async () => {
+  await clearCustomerSearch();
+  mobileSearchDialog.close();
 });
 
 prevPageButton.addEventListener("click", async () => {
@@ -983,24 +1071,16 @@ selectAllCheckbox.addEventListener("change", () => {
     state.transactions.forEach((transaction) => state.selectedIds.delete(transaction.id));
   }
   renderTransactions(state.transactions);
+  renderOwnerSession();
 });
 
 batchApproveButton.addEventListener("click", async () => {
-  if (!state.selectedIds.size) return;
-  try {
-    batchApproveButton.disabled = true;
-    await apiFetch("/api/owner/batch-approve", {
-      method: "POST",
-      body: JSON.stringify({ transactionIds: [...state.selectedIds] }),
-    });
-    state.selectedIds.clear();
-    invalidateTransactionCache();
-    await loadOwnerData({ showOverlay: true, loadingText: "正在批次核准並刷新資料...", showRefreshStatus: true, refreshMeta: true });
-  } catch (error) {
-    showError(error instanceof Error ? error.message : "批次核准失敗");
-  } finally {
-    batchApproveButton.disabled = false;
-  }
+  await runBatchApprove();
+});
+
+mobileMenuBatchApproveButton.addEventListener("click", async () => {
+  mobileOwnerMenuDialog.close();
+  await runBatchApprove();
 });
 
 async function updateAutoApproveSettings(autoApproveEnabled) {
@@ -1040,6 +1120,23 @@ autoApproveButton.addEventListener("click", () => {
   autoApproveDialog.showModal();
 });
 
+mobileMenuAutoApproveButton.addEventListener("click", () => {
+  mobileOwnerMenuDialog.close();
+  syncAutoApproveDialog();
+  autoApproveDialog.showModal();
+});
+
+mobileMenuRefreshButton.addEventListener("click", async () => {
+  mobileOwnerMenuDialog.close();
+  invalidateTransactionCache();
+  await loadOwnerData({ showOverlay: true, loadingText: "正在刷新資料...", showRefreshStatus: true, runAutoApprove: true, refreshMeta: true });
+});
+
+mobileMenuLogoutButton.addEventListener("click", async () => {
+  mobileOwnerMenuDialog.close();
+  await logoutOwner();
+});
+
 confirmAutoApproveButton.addEventListener("click", async () => {
   await updateAutoApproveSettings(true);
 });
@@ -1057,6 +1154,8 @@ refreshDashboardButton.addEventListener("click", async () => {
 ownerCloseDialogButton.addEventListener("click", () => ownerImageDialog.close());
 ownerCloseDetailButton.addEventListener("click", () => ownerDetailDialog.close());
 closeAutoApproveDialogButton.addEventListener("click", () => autoApproveDialog.close());
+closeMobileOwnerMenuButton.addEventListener("click", () => mobileOwnerMenuDialog.close());
+closeMobileSearchDialogButton.addEventListener("click", () => mobileSearchDialog.close());
 ownerImageDialog.addEventListener("click", (event) => {
   const rect = ownerImageDialog.getBoundingClientRect();
   const clickedInside =
@@ -1083,6 +1182,24 @@ autoApproveDialog.addEventListener("click", (event) => {
     rect.left <= event.clientX &&
     event.clientX <= rect.left + rect.width;
   if (!clickedInside) autoApproveDialog.close();
+});
+mobileOwnerMenuDialog.addEventListener("click", (event) => {
+  const rect = mobileOwnerMenuDialog.getBoundingClientRect();
+  const clickedInside =
+    rect.top <= event.clientY &&
+    event.clientY <= rect.top + rect.height &&
+    rect.left <= event.clientX &&
+    event.clientX <= rect.left + rect.width;
+  if (!clickedInside) mobileOwnerMenuDialog.close();
+});
+mobileSearchDialog.addEventListener("click", (event) => {
+  const rect = mobileSearchDialog.getBoundingClientRect();
+  const clickedInside =
+    rect.top <= event.clientY &&
+    event.clientY <= rect.top + rect.height &&
+    rect.left <= event.clientX &&
+    event.clientX <= rect.left + rect.width;
+  if (!clickedInside) mobileSearchDialog.close();
 });
 
 window.addEventListener("load", async () => {

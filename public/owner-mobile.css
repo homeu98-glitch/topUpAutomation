@@ -1,11 +1,100 @@
+.owner-page .page {
+  padding-top: 10px;
+}
+
+.owner-page .owner-hero-actions,
+.owner-page .list-toolbar .tab-bar,
+.owner-page .owner-toolbar-actions,
 .owner-page .table-wrapper {
-  display: none;
+  display: none !important;
+}
+
+.owner-page .mobile-fab {
+  position: fixed;
+  top: 12px;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 14px;
+  background: rgba(17, 24, 39, 0.92);
+  color: #fff;
+  font-size: 18px;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.24);
+  z-index: 55;
+}
+
+.owner-page .mobile-search-fab {
+  left: 12px;
+}
+
+.owner-page .mobile-menu-fab {
+  right: 12px;
+}
+
+.owner-page .mobile-owner-nav {
+  position: sticky;
+  top: 12px;
+  z-index: 40;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 8px 0 14px;
+  padding: 0;
+}
+
+.owner-page .mobile-nav-button {
+  position: relative;
+  min-height: 46px;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.95);
+  color: #475569;
+  font-weight: 700;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+}
+
+.owner-page .mobile-nav-button.active {
+  background: #111827;
+  color: #fff;
+  border-color: #111827;
 }
 
 .owner-page #transactionList {
   display: grid !important;
-  gap: 14px;
+  gap: 12px;
   margin-top: 14px;
+}
+
+.owner-page .dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.owner-page .dashboard-grid .stat-card {
+  aspect-ratio: 1 / 1;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 6px;
+  padding: 8px;
+  min-height: 88px;
+  border-radius: 16px;
+}
+
+.owner-page .dashboard-grid .summary-label {
+  font-size: 11px;
+  line-height: 1.15;
+  text-align: center;
+  word-break: break-word;
+}
+
+.owner-page .dashboard-grid .summary-value {
+  font-size: clamp(12px, 3.4vw, 16px) !important;
+  line-height: 1.15;
+  text-align: center;
+  word-break: break-word;
 }
 
 .owner-page .pagination-bar {
@@ -13,49 +102,12 @@
   margin-top: 14px;
 }
 
-.owner-page .list-toolbar {
-  gap: 14px;
-}
-
-.owner-page .tab-bar {
-  width: 100%;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-
-.owner-page .tab-button {
-  width: 100%;
-  justify-content: center;
-}
-
-.owner-page .owner-toolbar-actions,
-.owner-page .search-box {
-  width: 100%;
-}
-
-.owner-page .search-box .text-input,
-.owner-page .search-box button,
-.owner-page .page-size-picker,
-.owner-page .page-size-picker select,
-.owner-page #batchApproveButton,
-.owner-page #refreshDashboardButton,
-.owner-page #autoApproveButton,
-.owner-page #ownerLogoutButton,
-.owner-page .nav-link {
-  width: 100%;
-}
-
-.owner-page .dashboard-grid {
-  grid-template-columns: 1fr;
-}
-
 .owner-page .owner-mobile-card {
   display: grid;
-  gap: 12px;
-  padding: 16px;
+  gap: 10px;
+  padding: 14px;
   border: 1px solid #e6ebf2;
-  border-radius: 22px;
+  border-radius: 18px;
   background: #fff;
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
 }
@@ -76,27 +128,30 @@
 .owner-page .owner-mobile-meta {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
+  gap: 8px;
 }
 
 .owner-page .owner-mobile-meta-card {
   display: grid;
-  gap: 6px;
-  padding: 12px;
-  border-radius: 16px;
+  gap: 4px;
+  padding: 10px 8px;
+  border-radius: 14px;
   background: #f8fafc;
   border: 1px solid #e6ebf2;
+  min-height: 70px;
+  align-content: center;
 }
 
 .owner-page .owner-mobile-meta-card strong {
-  font-size: 15px;
+  font-size: 14px;
   color: #111827;
   word-break: break-word;
+  text-align: center;
 }
 
 .owner-page .owner-mobile-thumb-row {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   overflow-x: auto;
   padding-bottom: 2px;
 }
@@ -121,6 +176,40 @@
 
 .owner-page .owner-mobile-actions .secondary-button,
 .owner-page .owner-mobile-actions .primary-button {
+  width: 100%;
+}
+
+.owner-page .mobile-owner-dialog {
+  width: min(100vw - 20px, 420px);
+}
+
+.owner-page .mobile-owner-menu-grid {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.owner-page .mobile-owner-info-card {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border-radius: 16px;
+  background: #f8fafc;
+  border: 1px solid #e6ebf2;
+}
+
+.owner-page .mobile-owner-menu-actions,
+.owner-page .mobile-search-panel {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.owner-page .mobile-owner-menu-actions .secondary-button,
+.owner-page .mobile-owner-menu-actions .primary-button,
+.owner-page .mobile-search-panel .text-input,
+.owner-page .mobile-search-panel .secondary-button,
+.owner-page .mobile-search-panel .primary-button {
   width: 100%;
 }
 

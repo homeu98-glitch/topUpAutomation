@@ -55,6 +55,19 @@ function formatDateTime(value) {
   return new Date(value).toLocaleString("zh-Hant");
 }
 
+function getVerificationMeta(status) {
+  if (status === "verified_amount_and_id") {
+    return { tagClass: "verified-tag", thumbClass: "verified-thumb", label: "Verified amount and ID" };
+  }
+  if (status === "verified_id_only") {
+    return { tagClass: "partial-verified-tag", thumbClass: "partial-verified-thumb", label: "Verified ID only" };
+  }
+  if (status === "no_match") {
+    return { tagClass: "failed-tag", thumbClass: "failed-thumb", label: "No ID Match" };
+  }
+  return null;
+}
+
 function showError(message) {
   adminErrorCard.textContent = message;
   adminErrorCard.classList.remove("hidden");
@@ -149,7 +162,7 @@ function renderDetailDialog(transaction) {
                 <span class="pill">${formatCurrency(item?.manualAmount || item?.extracted?.amount)}</span>
               </div>
               <div class="owner-item-grid">
-                <button class="thumb-button admin-detail-thumb" type="button" data-src="${item.previewUrl}" data-alt="交易明細 ${index + 1}">
+                <button class="thumb-button admin-detail-thumb ${getVerificationMeta(item?.verificationStatus)?.thumbClass || ""}" type="button" data-src="${item.previewUrl}" data-alt="交易明細 ${index + 1}">
                   <img src="${item.previewUrl}" alt="交易明細 ${index + 1}" />
                 </button>
                 <span>商戶：${item?.extracted?.merchantName || "-"}</span>
@@ -159,15 +172,13 @@ function renderDetailDialog(transaction) {
                     ? item.extracted.allDetectedOrderNos.join(" / ")
                     : "-"
                 }</span>
-                <span>核對結果：${
-                  item?.verificationStatus === "verified"
-                    ? "Verified"
-                    : item?.verificationStatus === "no_match"
-                      ? "No Match"
-                      : "-"
-                }</span>
+                <span>核對結果：${getVerificationMeta(item?.verificationStatus)?.label || "-"}</span>
                 <span>匹配單號：${item?.verificationMatchedOrderNo || "-"}</span>
                 <span>匹配欄位：${item?.verificationMatchedSource || "-"}</span>
+                <span>mPay 黃金金額：${item?.verificationBackofficeAmount ? formatCurrency(item.verificationBackofficeAmount) : "-"}</span>
+                <span>金額是否一致：${
+                  item?.verificationAmountMatched == null ? "-" : item.verificationAmountMatched ? "Yes" : "No, auto corrected"
+                }</span>
                 <span>金額：${item?.manualAmount || item?.extracted?.amount || "-"}</span>
                 <span>時間：${item?.extracted?.transactionTime || "-"}</span>
                 <span>狀態：${item?.extracted?.orderStatus || "-"}</span>
@@ -212,6 +223,7 @@ function renderTransactions(rows) {
         transaction.status === "approved" ? "已核准" : transaction.status === "rejected" ? "已拒絕" : "待審核";
       const statusClass =
         transaction.status === "approved" ? "approved-pill" : transaction.status === "rejected" ? "rejected-pill" : "";
+      const verificationMeta = getVerificationMeta(transaction.verificationStatus);
       return `
         <tr>
           <td>${formatDateTime(transaction.submitted_at)}</td>
@@ -223,7 +235,7 @@ function renderTransactions(rows) {
                 .slice(0, 3)
                 .map(
                   (item, index) => `
-                    <button class="thumb-button admin-thumb-button" type="button" data-src="${item.previewUrl}" data-alt="交易明細 ${index + 1}">
+                    <button class="thumb-button admin-thumb-button ${getVerificationMeta(item?.verificationStatus)?.thumbClass || ""}" type="button" data-src="${item.previewUrl}" data-alt="交易明細 ${index + 1}">
                       <img src="${item.previewUrl}" alt="交易明細 ${index + 1}" />
                     </button>
                   `
@@ -233,7 +245,12 @@ function renderTransactions(rows) {
           </td>
           <td>${transaction.item_count}</td>
           <td>${formatCurrency(transaction.total_amount)}</td>
-          <td><span class="pill ${statusClass}">${statusLabel}</span></td>
+          <td>
+            <div class="status-stack">
+              <span class="pill ${statusClass}">${statusLabel}</span>
+              ${verificationMeta ? `<span class="${verificationMeta.tagClass}">${verificationMeta.label}</span>` : ""}
+            </div>
+          </td>
           <td>${transaction.approved_by || "-"}</td>
           <td><button class="secondary-button admin-detail-button" data-id="${transaction.id}" type="button">明細</button></td>
         </tr>

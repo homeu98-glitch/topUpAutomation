@@ -930,6 +930,37 @@ th {
   border: 2px solid #188038 !important;
 }
 
+.partial-verified-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(249, 171, 0, 0.35);
+  background: rgba(249, 171, 0, 0.12);
+  color: #8a5200;
+  font-weight: 800;
+  font-size: 12px;
+}
+
+.partial-verified-item .thumb-button {
+  border: 2px solid #f9ab00;
+}
+
+.partial-verified-banner {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(249, 171, 0, 0.35);
+  background: rgba(249, 171, 0, 0.12);
+  color: #8a5200;
+  font-weight: 800;
+}
+
+.partial-verified-thumb {
+  border: 2px solid #f9ab00 !important;
+}
+
 .failed-tag {
   display: inline-flex;
   align-items: center;
@@ -999,6 +1030,11 @@ th {
 
 #ownerDialogImage.failed-preview {
   border: 3px solid #d93025;
+  border-radius: 18px;
+}
+
+#ownerDialogImage.partial-verified-preview {
+  border: 3px solid #f9ab00;
   border-radius: 18px;
 }
 

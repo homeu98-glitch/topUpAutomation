@@ -86,6 +86,7 @@ table {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-wrap: wrap;
 }
 
 .icon-button {
@@ -100,6 +101,10 @@ table {
 
 .icon-button:active {
   transform: translateY(1px);
+}
+
+.full-width-button {
+  width: 100%;
 }
 
 .link-danger {
@@ -1164,6 +1169,14 @@ th {
   gap: 12px;
 }
 
+.bottom-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .bottom-total {
   font-size: 20px;
   margin-top: 4px;
@@ -1171,6 +1184,32 @@ th {
 
 body.has-bottom-bar .compact-page {
   padding-bottom: 140px;
+}
+
+.customer-return-card {
+  margin-top: 18px;
+}
+
+.customer-loading-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(107, 114, 128, 0.48);
+  display: grid;
+  place-items: center;
+  z-index: 80;
+}
+
+.customer-loading-card {
+  min-width: min(92vw, 340px);
+  display: grid;
+  gap: 14px;
+  place-items: center;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.98);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 24px 22px;
+  box-shadow: var(--shadow);
 }
 
 .amount-picker {

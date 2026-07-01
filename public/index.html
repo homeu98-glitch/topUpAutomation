@@ -14,6 +14,9 @@
           <p class="subtitle">上傳截圖並送交店主審核。</p>
         </div>
         <div class="customer-hero-actions">
+          <button id="customerReturnTopButton" class="icon-button" type="button" aria-label="返回澳門會員通">
+            ✕
+          </button>
           <label id="shopSelectWrapper" class="shop-picker hidden">
             <select id="shopSelect" class="text-input"></select>
           </label>
@@ -96,8 +99,11 @@
           <div id="detailList" class="detail-list"></div>
         </section>
 
+        <section class="card customer-return-card">
+          <button id="customerReturnBottomButton" class="secondary-button full-width-button" type="button">返回澳門會員通</button>
+        </section>
+
       </main>
-    </div>
 
     <input id="fileInput" type="file" accept="image/*" multiple hidden />
 
@@ -136,7 +142,20 @@
           <div class="summary-label">交易總額</div>
           <div id="totalAmount" class="summary-value bottom-total">MOP 0.00</div>
         </div>
-        <button id="confirmResultButton" class="primary-button" type="button">確認送審</button>
+        <div class="bottom-bar-actions">
+          <button id="customerReturnBarButton" class="secondary-button" type="button">返回澳門會員通</button>
+          <button id="confirmResultButton" class="primary-button" type="button">確認送審</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="customerLoadingOverlay" class="customer-loading-overlay hidden" aria-hidden="true">
+      <div class="customer-loading-card">
+        <div class="spinner"></div>
+        <div>
+          <h2 id="customerLoadingTitle">辨識中</h2>
+          <p id="customerLoadingMessage">系統正在壓縮圖片並分析交易資料，請稍候。</p>
+        </div>
       </div>
     </div>
 

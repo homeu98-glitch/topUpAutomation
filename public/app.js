@@ -59,6 +59,12 @@ const closeCustomerMenuButton = document.getElementById("closeCustomerMenuButton
 const customerAccountSection = document.getElementById("customerAccountSection");
 const customerAccountLine = document.getElementById("customerAccountLine");
 const customerMenuLogoutButton = document.getElementById("customerMenuLogoutButton");
+const customerReturnTopButton = document.getElementById("customerReturnTopButton");
+const customerReturnBottomButton = document.getElementById("customerReturnBottomButton");
+const customerReturnBarButton = document.getElementById("customerReturnBarButton");
+const customerLoadingOverlay = document.getElementById("customerLoadingOverlay");
+const customerLoadingTitle = document.getElementById("customerLoadingTitle");
+const customerLoadingMessage = document.getElementById("customerLoadingMessage");
 
 function formatCurrency(value) {
   return `MOP ${Number(value || 0).toFixed(2)}`;
@@ -125,6 +131,49 @@ async function apiFetch(path, options = {}) {
 
 function setUploadingState(isUploading) {
   loadingCard.classList.toggle("hidden", !isUploading);
+  customerLoadingOverlay.classList.toggle("hidden", !isUploading);
+}
+
+function setCustomerBlockingOverlay(visible, title = "辨識中", message = "系統正在壓縮圖片並分析交易資料，請稍候。") {
+  customerLoadingTitle.textContent = title;
+  customerLoadingMessage.textContent = message;
+  setUploadingState(visible);
+}
+
+function getSiteAReturnUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const explicit = params.get("siteAReturnUrl") || params.get("returnUrl") || params.get("backUrl");
+  if (explicit) {
+    try {
+      return new URL(explicit, window.location.origin).toString();
+    } catch {
+      return explicit;
+    }
+  }
+  if (document.referrer && document.referrer !== window.location.href) {
+    return document.referrer;
+  }
+  return "";
+}
+
+function returnToSiteA() {
+  const returnUrl = getSiteAReturnUrl();
+  if (returnUrl) {
+    window.location.href = returnUrl;
+    return;
+  }
+  if (window.history.length > 1) {
+    window.history.back();
+    return;
+  }
+  window.location.href = "/";
+}
+
+function clearCustomerSubmissionState() {
+  state.selectedFiles = [];
+  fileInput.value = "";
+  resetResults();
+  renderSelectedFiles();
 }
 
 function setConfirmState(isSubmitting, label = defaultConfirmButtonText) {
@@ -703,6 +752,7 @@ async function logoutCustomer() {
 }
 
 function openPicker() {
+  if (!customerLoadingOverlay.classList.contains("hidden")) return;
   if (state.user?.role !== "customer") {
     showError("請先登入客戶帳號");
     return;
@@ -726,14 +776,12 @@ async function analyzeFiles(filesToAnalyze = state.selectedFiles, options = {}) 
     return false;
   }
 
-  setUploadingState(true);
+  setCustomerBlockingOverlay(true, "辨識中", "系統正在壓縮圖片並分析交易資料，請稍候。");
   const ready = await checkBackendAvailability(true);
   if (!ready) {
-    setUploadingState(false);
+    setCustomerBlockingOverlay(false);
     return false;
   }
-
-  setUploadingState(true);
 
   try {
     const formData = new FormData();
@@ -759,7 +807,7 @@ async function analyzeFiles(filesToAnalyze = state.selectedFiles, options = {}) 
     showError(error instanceof Error ? error.message : "系統錯誤，請稍後再試。");
     return false;
   } finally {
-    setUploadingState(false);
+    setCustomerBlockingOverlay(false);
   }
 }
 
@@ -800,8 +848,9 @@ async function submitForApproval() {
       payload.status === "rejected"
         ? `此交易已被系統拒絕。原因：商戶名稱與所選店舖不符。交易編號：${payload.transactionId}`
         : `已成功送交店主審核。交易編號：${payload.transactionId}`;
-    submitStatusCard.classList.remove("hidden");
-    setConfirmState(true, payload.status === "rejected" ? "已拒絕" : "已送審");
+    showStatus(submitStatusCard.textContent, payload.status === "rejected" ? "warning" : "success");
+    clearCustomerSubmissionState();
+    setConfirmState(false);
     await loadCustomerTransactions();
   } catch (error) {
     setConfirmState(false);
@@ -914,6 +963,10 @@ customerMenuButton.addEventListener("click", async () => {
 });
 
 closeCustomerMenuButton.addEventListener("click", () => customerMenuDialog.close());
+
+customerReturnTopButton.addEventListener("click", returnToSiteA);
+customerReturnBottomButton.addEventListener("click", returnToSiteA);
+customerReturnBarButton.addEventListener("click", returnToSiteA);
 
 customerMenuLogoutButton.addEventListener("click", async () => {
   await logoutCustomer();

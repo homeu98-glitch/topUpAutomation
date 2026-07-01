@@ -440,6 +440,19 @@ function clearMembershipTokenFromUrl() {
   window.history.replaceState({}, document.title, url.toString());
 }
 
+function navigateToSsoTarget(pathname = "/", txId = "") {
+  const currentUrl = new URL(window.location.href);
+  const targetUrl = new URL(pathname || "/", window.location.origin);
+  if (txId) {
+    targetUrl.searchParams.set("txId", txId);
+  }
+  if (`${targetUrl.pathname}${targetUrl.search}` === `${currentUrl.pathname}${currentUrl.search}`) {
+    return false;
+  }
+  window.location.href = targetUrl.toString();
+  return true;
+}
+
 function createDetailRow(label, value, extraClass = "") {
   const row = document.createElement("tr");
   row.innerHTML = `<th>${label}</th><td class="${extraClass}">${value ?? "未能辨識"}</td>`;
@@ -682,7 +695,11 @@ async function loginCustomerFromMembershipToken(token) {
       body: JSON.stringify({ ssoToken: token }),
     });
     if (payload.user?.role === "owner") {
-      window.location.href = "/owner.html";
+      navigateToSsoTarget(payload.redirect?.path || "/owner.html", payload.redirect?.txId || "");
+      return;
+    }
+    if (payload.redirect?.path && payload.redirect.path !== "/" && payload.redirect.path !== window.location.pathname) {
+      navigateToSsoTarget(payload.redirect.path, payload.redirect?.txId || "");
       return;
     }
     state.user = payload.user;
@@ -1033,14 +1050,13 @@ imageDialog.addEventListener("click", (event) => {
 window.addEventListener("load", async () => {
   try {
     renderAuthMode();
-    await Promise.all([loadShops(), loadSession(), checkBackendAvailability()]);
-    if (!state.user) {
-      const membershipToken = extractMembershipToken();
-      if (membershipToken) {
-        await loginCustomerFromMembershipToken(membershipToken);
-        return;
-      }
+    const membershipToken = extractMembershipToken();
+    if (membershipToken) {
+      await Promise.all([loadShops(), checkBackendAvailability()]);
+      await loginCustomerFromMembershipToken(membershipToken);
+      return;
     }
+    await Promise.all([loadShops(), loadSession(), checkBackendAvailability()]);
     setAuthBooting(false);
     renderCustomerSession();
   } catch (error) {

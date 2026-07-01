@@ -199,6 +199,19 @@ function clearMembershipTokenFromUrl() {
   window.history.replaceState({}, document.title, url.toString());
 }
 
+function navigateToSsoTarget(pathname = "/owner.html", txId = "") {
+  const currentUrl = new URL(window.location.href);
+  const targetUrl = new URL(pathname || "/owner.html", window.location.origin);
+  if (txId) {
+    targetUrl.searchParams.set("txId", txId);
+  }
+  if (`${targetUrl.pathname}${targetUrl.search}` === `${currentUrl.pathname}${currentUrl.search}`) {
+    return false;
+  }
+  window.location.href = targetUrl.toString();
+  return true;
+}
+
 function setAuthBooting(isBooting) {
   state.authBooting = isBooting;
   document.body.classList.toggle("owner-auth-booting", isBooting);
@@ -1015,7 +1028,11 @@ async function loginOwnerFromMembershipToken(token) {
       body: JSON.stringify({ ssoToken: token }),
     });
     if (payload.user?.role === "customer") {
-      window.location.href = "/";
+      navigateToSsoTarget(payload.redirect?.path || "/", payload.redirect?.txId || "");
+      return;
+    }
+    if (payload.redirect?.path && payload.redirect.path !== window.location.pathname) {
+      navigateToSsoTarget(payload.redirect.path, payload.redirect?.txId || "");
       return;
     }
     state.user = payload.user;
@@ -1259,14 +1276,12 @@ mobileSearchDialog.addEventListener("click", (event) => {
 
 window.addEventListener("load", async () => {
   try {
-    await loadSession();
-    if (!state.user) {
-      const membershipToken = extractMembershipToken();
-      if (membershipToken) {
-        await loginOwnerFromMembershipToken(membershipToken);
-        return;
-      }
+    const membershipToken = extractMembershipToken();
+    if (membershipToken) {
+      await loginOwnerFromMembershipToken(membershipToken);
+      return;
     }
+    await loadSession();
     setAuthBooting(false);
     renderOwnerSession();
   } catch (error) {

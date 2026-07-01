@@ -43,6 +43,7 @@ const mobileMenuFab = document.getElementById("mobileMenuFab");
 const ownerLoginInput = document.getElementById("ownerLoginInput");
 const ownerPasswordInput = document.getElementById("ownerPasswordInput");
 const ownerLoginButton = document.getElementById("ownerLoginButton");
+const ownerAccessReturnButton = document.getElementById("ownerAccessReturnButton");
 const ownerLogoutButton = document.getElementById("ownerLogoutButton");
 const autoApproveButton = document.getElementById("autoApproveButton");
 const liveModeButton = document.getElementById("liveModeButton");
@@ -197,6 +198,35 @@ function clearMembershipTokenFromUrl() {
   url.searchParams.delete("token");
   url.hash = "";
   window.history.replaceState({}, document.title, url.toString());
+}
+
+function getSiteAReturnUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const explicit = params.get("siteAReturnUrl") || params.get("returnUrl") || params.get("backUrl");
+  if (explicit) {
+    try {
+      return new URL(explicit, window.location.origin).toString();
+    } catch {
+      return explicit;
+    }
+  }
+  if (document.referrer && document.referrer !== window.location.href) {
+    return document.referrer;
+  }
+  return "";
+}
+
+function returnToSiteA() {
+  const returnUrl = getSiteAReturnUrl();
+  if (returnUrl) {
+    window.location.href = returnUrl;
+    return;
+  }
+  if (window.history.length > 1) {
+    window.history.back();
+    return;
+  }
+  window.location.href = "/";
 }
 
 function navigateToSsoTarget(pathname = "/owner.html", txId = "") {
@@ -1217,7 +1247,8 @@ disableAutoApproveButton.addEventListener("click", async () => {
   await updateAutoApproveSettings(false);
 });
 
-ownerLoginButton.addEventListener("click", loginOwner);
+ownerLoginButton?.addEventListener("click", loginOwner);
+ownerAccessReturnButton?.addEventListener("click", returnToSiteA);
 ownerLogoutButton.addEventListener("click", logoutOwner);
 refreshDashboardButton.addEventListener("click", async () => {
   invalidateTransactionCache();

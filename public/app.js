@@ -65,6 +65,7 @@ const customerReturnBarButton = document.getElementById("customerReturnBarButton
 const customerLoadingOverlay = document.getElementById("customerLoadingOverlay");
 const customerLoadingTitle = document.getElementById("customerLoadingTitle");
 const customerLoadingMessage = document.getElementById("customerLoadingMessage");
+const customerAccessReturnButton = document.getElementById("customerAccessReturnButton");
 
 function formatCurrency(value) {
   return `MOP ${Number(value || 0).toFixed(2)}`;
@@ -375,6 +376,7 @@ function shouldUseAssignedShopOnly() {
 }
 
 function renderAuthMode() {
+  if (!customerModeButton || !ownerModeButton || !customerLoginPane || !ownerLoginPane) return;
   const isCustomer = state.authMode === "customer";
   customerModeButton.classList.toggle("active", isCustomer);
   ownerModeButton.classList.toggle("active", !isCustomer);
@@ -759,8 +761,8 @@ async function logoutCustomer() {
   state.selectedFiles = [];
   state.customerTransactions = [];
   setBottomBarVisible(false);
-  memberCodeInput.value = "";
-  customerPasswordInput.value = "";
+  if (memberCodeInput) memberCodeInput.value = "";
+  if (customerPasswordInput) customerPasswordInput.value = "";
   resetResults();
   renderSelectedFiles();
   renderCustomerSession();
@@ -950,8 +952,8 @@ shopSelect.addEventListener("change", async () => {
   await loadCustomerTransactions();
 });
 
-customerLoginButton.addEventListener("click", () => loginCustomer());
-ownerLoginButton.addEventListener("click", loginOwnerFromMain);
+customerLoginButton?.addEventListener("click", () => loginCustomer());
+ownerLoginButton?.addEventListener("click", loginOwnerFromMain);
 confirmResultButton.addEventListener("click", submitForApproval);
 
 introCard.addEventListener("click", openPicker);
@@ -964,11 +966,11 @@ selectedCard.addEventListener("click", (event) => {
     return;
   openPicker();
 });
-customerModeButton.addEventListener("click", () => {
+customerModeButton?.addEventListener("click", () => {
   state.authMode = "customer";
   renderAuthMode();
 });
-ownerModeButton.addEventListener("click", () => {
+ownerModeButton?.addEventListener("click", () => {
   state.authMode = "owner";
   renderAuthMode();
 });
@@ -984,6 +986,7 @@ closeCustomerMenuButton.addEventListener("click", () => customerMenuDialog.close
 customerReturnTopButton.addEventListener("click", returnToSiteA);
 customerReturnBottomButton.addEventListener("click", returnToSiteA);
 customerReturnBarButton.addEventListener("click", returnToSiteA);
+customerAccessReturnButton?.addEventListener("click", returnToSiteA);
 
 customerMenuLogoutButton.addEventListener("click", async () => {
   await logoutCustomer();

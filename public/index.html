@@ -38,29 +38,11 @@
 
       <section id="customerLoginCard" class="card login-card">
         <div class="section-header">
-          <h2>登入</h2>
+          <h2>請從澳門會員通進入</h2>
         </div>
-        <div class="tab-bar auth-toggle">
-          <button id="customerModeButton" class="tab-button active" type="button">客戶</button>
-          <button id="ownerModeButton" class="tab-button" type="button">店主</button>
-        </div>
-
-        <div id="customerLoginPane">
-          <p class="subtitle compact-subtitle">請輸入 8 位會員編號和 4 位密碼。</p>
-          <div class="login-grid">
-            <input id="memberCodeInput" class="text-input" type="text" inputmode="numeric" maxlength="8" placeholder="會員編號，例如 63936541" />
-            <input id="customerPasswordInput" class="text-input" type="password" inputmode="numeric" maxlength="4" placeholder="4 位密碼，例如 1234" />
-            <button id="customerLoginButton" class="primary-button" type="button">登入並開始上傳</button>
-          </div>
-        </div>
-
-        <div id="ownerLoginPane" class="hidden">
-          <p class="subtitle compact-subtitle">店主帳號為 8 位數字，密碼為 4 位數字。</p>
-          <div class="login-grid">
-            <input id="ownerCodeInput" class="text-input" type="text" inputmode="numeric" maxlength="8" placeholder="店主帳號，例如 60000000" />
-            <input id="ownerPasswordInput" class="text-input" type="password" inputmode="numeric" maxlength="4" placeholder="4 位密碼，例如 0000" />
-            <button id="ownerLoginButton" class="primary-button" type="button">登入店主後台</button>
-          </div>
+        <p class="subtitle compact-subtitle">此頁面已改為 API / SSO 專用入口，不再提供手動登入。</p>
+        <div class="detail-dialog-actions" style="margin-top: 16px;">
+          <button id="customerAccessReturnButton" class="primary-button" type="button">返回澳門會員通</button>
         </div>
       </section>
 

@@ -63,6 +63,11 @@ export default async function handler(req, res) {
     return ownerLoginHandler(req, res);
   }
 
+  if (pathname.endsWith("/auth/admin-login")) {
+    const { default: adminLoginHandler } = await import("./auth/admin-login.js");
+    return adminLoginHandler(req, res);
+  }
+
   if (pathname.endsWith("/auth/logout")) {
     const { default: logoutHandler } = await import("./auth/logout.js");
     return logoutHandler(req, res);
@@ -121,6 +126,16 @@ export default async function handler(req, res) {
   if (pathname.endsWith("/owner/update-transaction")) {
     const { default: updateTransactionHandler } = await import("./owner/update-transaction.js");
     return updateTransactionHandler(req, res);
+  }
+
+  if (pathname.endsWith("/admin/dashboard")) {
+    const { default: adminDashboardHandler } = await import("./admin/dashboard.js");
+    return adminDashboardHandler(req, res);
+  }
+
+  if (pathname.endsWith("/admin/transactions")) {
+    const { default: adminTransactionsHandler } = await import("./admin/transactions.js");
+    return adminTransactionsHandler(req, res);
   }
 
   if (pathname.endsWith("/cron/auto-approve")) {

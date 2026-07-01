@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>管理員調查後台</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body class="owner-page owner-auth-booting">
+    <div class="page">
+      <header class="hero hero-compact owner-hero">
+        <div>
+          <h1>管理員後台</h1>
+          <p class="subtitle">跨店舖查看所有交易紀錄，只供調查與追查，不提供任何核准或拒絕操作。</p>
+        </div>
+        <div class="owner-hero-actions">
+          <div id="adminHeaderSession" class="header-session hidden">
+            <span id="adminNameBadge" class="pill">未登入</span>
+            <span class="pill subtle-pill">Read only</span>
+            <button id="adminLogoutButton" class="secondary-button" type="button">登出</button>
+          </div>
+        </div>
+      </header>
+
+      <section id="adminErrorCard" class="card error-card hidden"></section>
+      <section id="adminAuthBootCard" class="card loading-card">
+        <div class="spinner"></div>
+        <div>
+          <h2>登入檢查中</h2>
+          <p>系統正在確認管理員登入狀態，請稍候。</p>
+        </div>
+      </section>
+
+      <section id="adminLoginCard" class="card login-card">
+        <div class="section-header">
+          <h2>管理員登入</h2>
+        </div>
+        <div class="login-grid">
+          <input id="adminLoginInput" class="text-input" type="text" inputmode="numeric" maxlength="8" placeholder="管理員帳號，例如 60000001" />
+          <input id="adminPasswordInput" class="text-input" type="password" inputmode="numeric" maxlength="4" placeholder="管理員密碼，例如 0000" />
+          <button id="adminLoginButton" class="primary-button" type="button">登入管理後台</button>
+        </div>
+      </section>
+
+      <main id="adminApp" class="hidden">
+        <section id="adminDashboardCards" class="dashboard-grid"></section>
+
+        <section class="card">
+          <div class="list-toolbar">
+            <div class="tab-bar">
+              <button id="adminPendingTabButton" class="tab-button active" type="button">待審核</button>
+              <button id="adminHistoryTabButton" class="tab-button" type="button">歷史紀錄</button>
+            </div>
+            <div class="owner-toolbar-actions">
+              <div class="search-box">
+                <input id="adminCustomerSearchInput" class="text-input" type="text" inputmode="numeric" placeholder="搜尋客戶號碼" />
+                <button id="adminCustomerSearchButton" class="secondary-button" type="button">搜尋</button>
+                <button id="adminCustomerSearchClearButton" class="secondary-button" type="button">清除</button>
+              </div>
+              <label class="page-size-picker">
+                <span>每頁</span>
+                <select id="adminPageSizeSelect" class="text-input">
+                  <option value="20">20</option>
+                  <option value="50">50</option>
+                  <option value="100">100</option>
+                  <option value="all">All</option>
+                </select>
+              </label>
+              <button id="adminRefreshButton" class="secondary-button" type="button">重新整理</button>
+            </div>
+          </div>
+          <div class="table-wrapper">
+            <table class="owner-table">
+              <thead>
+                <tr>
+                  <th>提交時間</th>
+                  <th>店舖</th>
+                  <th>會員編號</th>
+                  <th>圖片</th>
+                  <th>圖片數</th>
+                  <th>總額</th>
+                  <th>狀態</th>
+                  <th>店主操作</th>
+                  <th>查看</th>
+                </tr>
+              </thead>
+              <tbody id="adminTransactionTableBody"></tbody>
+            </table>
+          </div>
+          <div class="pagination-bar">
+            <button id="adminPrevPageButton" class="secondary-button" type="button">上一頁</button>
+            <span id="adminPaginationInfo" class="field-note">第 1 頁</span>
+            <button id="adminNextPageButton" class="secondary-button" type="button">下一頁</button>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <dialog id="adminImageDialog" class="image-dialog">
+      <button id="adminCloseDialogButton" class="dialog-close" type="button">關閉</button>
+      <img id="adminDialogImage" alt="交易圖片預覽" />
+    </dialog>
+
+    <dialog id="adminDetailDialog" class="image-dialog detail-dialog">
+      <button id="adminCloseDetailButton" class="dialog-close" type="button">關閉</button>
+      <div id="adminDetailContent" class="owner-detail-content"></div>
+    </dialog>
+
+    <div id="adminLoadingOverlay" class="owner-loading-overlay hidden" aria-hidden="true">
+      <div class="owner-loading-card">
+        <div class="spinner"></div>
+        <p id="adminLoadingText">正在讀取資料...</p>
+      </div>
+    </div>
+
+    <script>
+      window.APP_CONFIG = {
+        apiBaseUrl: "https://top-up-automation.vercel.app",
+      };
+    </script>
+    <script src="/admin.js" type="module"></script>
+  </body>
+</html>

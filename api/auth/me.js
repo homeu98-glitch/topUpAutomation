@@ -25,6 +25,7 @@ export default async function handler(req, res) {
     return res.status(200).json({
       user: {
         role: session.role,
+        adminLogin: session.adminLogin || null,
         memberCode: session.memberCode || null,
         authSource: session.authSource || "local",
         externalMemberId: session.externalMemberId || null,

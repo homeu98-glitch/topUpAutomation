@@ -1,5 +1,5 @@
 import { applyCors, listCustomerTransactions } from "../../lib/topup-service.js";
-import { readSession } from "../../lib/session.js";
+import { readSession, refreshSession } from "../../lib/session.js";
 
 export default async function handler(req, res) {
   applyCors(req, res);
@@ -18,6 +18,7 @@ export default async function handler(req, res) {
     if (!session || session.role !== "customer" || !session.memberCode) {
       return res.status(401).json({ error: "請先以客戶身份登入" });
     }
+    refreshSession(res, session);
 
     const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
     const shopId = url.searchParams.get("shopId") || "";

@@ -53,6 +53,11 @@ export default async function handler(req, res) {
     return membershipLoginHandler(req, res);
   }
 
+  if (pathname.endsWith("/auth/sso-login")) {
+    const { default: ssoLoginHandler } = await import("./auth/sso-login.js");
+    return ssoLoginHandler(req, res);
+  }
+
   if (pathname.endsWith("/auth/owner-login")) {
     const { default: ownerLoginHandler } = await import("./auth/owner-login.js");
     return ownerLoginHandler(req, res);
@@ -121,6 +126,11 @@ export default async function handler(req, res) {
   if (pathname.endsWith("/cron/auto-approve")) {
     const { default: cronHandler } = await import("./cron/auto-approve.js");
     return cronHandler(req, res);
+  }
+
+  if (pathname.endsWith("/integration/sitea/pending-count")) {
+    const { default: pendingCountHandler } = await import("./integration/sitea/pending-count.js");
+    return pendingCountHandler(req, res);
   }
 
   return res.status(200).json({

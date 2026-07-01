@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 import formidable from "formidable";
 
 import { applyCors, createTransactionSubmission, getShopById } from "../../lib/topup-service.js";
-import { readSession } from "../../lib/session.js";
+import { readSession, refreshSession } from "../../lib/session.js";
 
 export const config = {
   api: {
@@ -53,6 +53,7 @@ export default async function handler(req, res) {
     if (!session || session.role !== "customer" || !session.memberCode) {
       return res.status(401).json({ error: "請先以客戶身份登入" });
     }
+    refreshSession(res, session);
 
     const { fields, files } = await parseForm(req);
     const uploadedFiles = normalizeArray(files.images);

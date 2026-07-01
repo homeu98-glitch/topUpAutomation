@@ -1,5 +1,5 @@
 import { applyCors, batchApproveTransactions } from "../../lib/topup-service.js";
-import { readSession } from "../../lib/session.js";
+import { readSession, refreshSession } from "../../lib/session.js";
 
 export default async function handler(req, res) {
   applyCors(req, res);
@@ -18,6 +18,7 @@ export default async function handler(req, res) {
     if (!session || session.role !== "owner" || !session.shopId) {
       return res.status(401).json({ error: "請先以店主身份登入" });
     }
+    refreshSession(res, session);
 
     const { transactionIds } = req.body || {};
     if (!Array.isArray(transactionIds) || !transactionIds.length) {

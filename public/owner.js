@@ -145,15 +145,17 @@ function setOwnerLoading(visible, text = "正在刷新資料...") {
 
 function extractMembershipToken() {
   const query = new URLSearchParams(window.location.search);
+  if (query.get("ssoToken")) return query.get("ssoToken");
   if (query.get("membershipToken")) return query.get("membershipToken");
   if (query.get("token")) return query.get("token");
   const hash = window.location.hash.startsWith("#") ? window.location.hash.slice(1) : window.location.hash;
   const hashParams = new URLSearchParams(hash);
-  return hashParams.get("membershipToken") || hashParams.get("token") || "";
+  return hashParams.get("ssoToken") || hashParams.get("membershipToken") || hashParams.get("token") || "";
 }
 
 function clearMembershipTokenFromUrl() {
   const url = new URL(window.location.href);
+  url.searchParams.delete("ssoToken");
   url.searchParams.delete("membershipToken");
   url.searchParams.delete("token");
   url.hash = "";
@@ -1000,9 +1002,9 @@ async function loginOwnerFromMembershipToken(token) {
   resetError();
   try {
     loadLiveModePreference();
-    const payload = await apiFetch("/api/auth/membership-login", {
+    const payload = await apiFetch("/api/auth/sso-login", {
       method: "POST",
-      body: JSON.stringify({ token }),
+      body: JSON.stringify({ ssoToken: token }),
     });
     if (payload.user?.role === "customer") {
       window.location.href = "/";

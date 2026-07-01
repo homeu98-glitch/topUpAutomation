@@ -11,6 +11,7 @@ const state = {
   authMode: "customer",
   authBooting: true,
   customerTransactions: [],
+  deepLinkTransactionId: "",
 };
 
 const fileInput = document.getElementById("fileInput");
@@ -366,17 +367,24 @@ function renderCustomerSession() {
 
 function extractMembershipToken() {
   const query = new URLSearchParams(window.location.search);
+  if (query.get("ssoToken")) return query.get("ssoToken");
   if (query.get("membershipToken")) return query.get("membershipToken");
   if (query.get("token")) return query.get("token");
 
   const hash = window.location.hash.startsWith("#") ? window.location.hash.slice(1) : window.location.hash;
   if (!hash) return "";
   const hashParams = new URLSearchParams(hash);
-  return hashParams.get("membershipToken") || hashParams.get("token") || "";
+  return hashParams.get("ssoToken") || hashParams.get("membershipToken") || hashParams.get("token") || "";
+}
+
+function extractDeepLinkTransactionId() {
+  const query = new URLSearchParams(window.location.search);
+  return query.get("txId") || "";
 }
 
 function clearMembershipTokenFromUrl() {
   const url = new URL(window.location.href);
+  url.searchParams.delete("ssoToken");
   url.searchParams.delete("membershipToken");
   url.searchParams.delete("token");
   url.hash = "";
@@ -592,6 +600,13 @@ async function loadCustomerTransactions() {
     const payload = await apiFetch(`/api/customer/transactions?pageSize=100`);
     state.customerTransactions = payload.rows || [];
     renderCustomerTransactions(state.customerTransactions);
+    if (state.deepLinkTransactionId) {
+      const target = state.customerTransactions.find((row) => row.id === state.deepLinkTransactionId);
+      if (target) {
+        renderCustomerDetailDialog(target);
+        state.deepLinkTransactionId = "";
+      }
+    }
   } catch {
     state.customerTransactions = [];
     renderCustomerTransactions([]);
@@ -606,21 +621,23 @@ async function loadSession() {
     return;
   }
   renderCustomerSession();
+  state.deepLinkTransactionId = extractDeepLinkTransactionId();
   await loadCustomerTransactions();
 }
 
 async function loginCustomerFromMembershipToken(token) {
   resetError();
   try {
-    const payload = await apiFetch("/api/auth/membership-login", {
+    const payload = await apiFetch("/api/auth/sso-login", {
       method: "POST",
-      body: JSON.stringify({ token }),
+      body: JSON.stringify({ ssoToken: token }),
     });
     if (payload.user?.role === "owner") {
       window.location.href = "/owner.html";
       return;
     }
     state.user = payload.user;
+    state.deepLinkTransactionId = payload.redirect?.txId || extractDeepLinkTransactionId();
     state.authMode = "customer";
     renderAuthMode();
     renderCustomerSession();

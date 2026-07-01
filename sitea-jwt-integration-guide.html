@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Site A ↔ Site B JWT Integration Guide</title>
+    <style>
+      body { font-family: Arial, sans-serif; line-height: 1.55; margin: 0; background: #f6f8fb; color: #1f2937; }
+      main { max-width: 980px; margin: 0 auto; padding: 32px 20px 48px; }
+      h1, h2, h3 { color: #111827; }
+      h1 { margin-top: 0; }
+      section { background: #fff; border: 1px solid #e5e7eb; border-radius: 16px; padding: 20px; margin-bottom: 18px; }
+      code, pre { font-family: "SFMono-Regular", Consolas, monospace; }
+      pre { background: #0f172a; color: #e5eefc; padding: 16px; border-radius: 12px; overflow: auto; white-space: pre-wrap; word-break: break-word; }
+      table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+      th, td { border: 1px solid #e5e7eb; padding: 10px; text-align: left; vertical-align: top; }
+      th { background: #f8fafc; }
+      .pill { display: inline-block; padding: 4px 10px; border-radius: 999px; background: #e8f0fe; color: #174ea6; font-weight: 700; }
+      .warn { background: #fff7ed; border-left: 4px solid #f97316; padding: 10px 12px; border-radius: 8px; }
+      .ok { background: #ecfdf5; border-left: 4px solid #10b981; padding: 10px 12px; border-radius: 8px; }
+      a { color: #174ea6; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Site A ↔ Site B JWT integration guide</h1>
+      <p>This document describes the JWT SSO entry, the callback/webhook payloads, the pending-count API, the shared secrets, and the recommended database update for the current Site B deployment.</p>
+
+      <section>
+        <h2>System values</h2>
+        <table>
+          <tr><th>Item</th><th>Value</th><th>Comment</th></tr>
+          <tr><td>Site B base URL</td><td><code>https://top-up-automation.vercel.app</code></td><td>Current live Site B base URL.</td></tr>
+          <tr><td>Owner entry URL</td><td><code>https://top-up-automation.vercel.app/owner.html?ssoToken=&lt;JWT&gt;</code></td><td>Site A should open this URL for shop owners.</td></tr>
+          <tr><td>Customer entry URL</td><td><code>https://top-up-automation.vercel.app/?ssoToken=&lt;JWT&gt;</code></td><td>Site A should open this URL for customers.</td></tr>
+          <tr><td>Customer deep-link URL</td><td><code>https://top-up-automation.vercel.app/?ssoToken=&lt;JWT&gt;&amp;txId=&lt;SITE_B_TRANSACTION_ID&gt;</code></td><td>Use this for rejected-notification click-through to the exact Site B transaction.</td></tr>
+          <tr><td>JWT algorithm</td><td><code>HS256</code></td><td>Site A signs the JWT, Site B verifies it.</td></tr>
+          <tr><td>JWT issuer</td><td><code>site-a</code></td><td>Must be sent in JWT claim <code>iss</code>.</td></tr>
+          <tr><td>JWT audience</td><td><code>site-b</code></td><td>Must be sent in JWT claim <code>aud</code>.</td></tr>
+          <tr><td>SSO shared secret</td><td><code>rsbh5ksO46Xn4E4ziPLg0HJI2sFjY_XH6QRAiJBUonSLVLlnvhE7s50CBVDvRCnH</code></td><td>Site A uses this to sign the JWT. Site B must use the same value in <code>SITEA_SSO_SECRET</code>.</td></tr>
+          <tr><td>Webhook shared secret</td><td><code>-ZyIcXbL5gPvyOGnqTaK6ndwKtCKHiZEPyzuMybH7ma0h9HdOTpKjV7rh-5cA0pI</code></td><td>Site B uses this to sign outbound callbacks to Site A. Site A verifies <code>X-Topup-Signature</code> with this secret.</td></tr>
+        </table>
+      </section>
+
+      <section>
+        <h2>Real integration examples</h2>
+        <div class="ok">
+          Current real sample values already present in Site B:
+          <br />
+          Shop id: <code>60000000</code>
+          <br />
+          Shop name: <code>表嫂美食</code>
+          <br />
+          Customer/member id: <code>63936541</code>
+        </div>
+        <h3>Owner JWT payload</h3>
+        <pre>{
+  "iss": "site-a",
+  "aud": "site-b",
+  "sub": "owner:60000000",
+  "jti": "8df2af75-f398-44fd-b3cf-e9f4d9a9a001",
+  "iat": 1782867600,
+  "nbf": 1782867540,
+  "exp": 1782868500,
+  "role": "owner",
+  "shop": {
+    "shopId": "60000000",
+    "shopName": "表嫂美食"
+  },
+  "redirect": {
+    "path": "/owner.html",
+    "txId": null
+  }
+}</pre>
+
+        <h3>Customer JWT payload</h3>
+        <pre>{
+  "iss": "site-a",
+  "aud": "site-b",
+  "sub": "customer:63936541",
+  "jti": "4d2d31ad-13d2-4a22-9aab-31c2bfc69b01",
+  "iat": 1782867600,
+  "nbf": 1782867540,
+  "exp": 1782868500,
+  "role": "customer",
+  "membership_status": "active",
+  "shop": {
+    "shopId": "60000000",
+    "shopName": "表嫂美食"
+  },
+  "customer": {
+    "customerId": "63936541",
+    "displayName": "CHAN TAI MAN",
+    "phone": "63936541"
+  },
+  "redirect": {
+    "path": "/",
+    "txId": "ecfdb0dc-1111-4444-8888-9c7b0d3c1a52"
+  }
+}</pre>
+      </section>
+
+      <section>
+        <h2>JWT field comments</h2>
+        <table>
+          <tr><th>Field</th><th>Type</th><th>What it is</th></tr>
+          <tr><td><code>iss</code></td><td>string</td><td>JWT issuer. Must be exactly <code>site-a</code>.</td></tr>
+          <tr><td><code>aud</code></td><td>string</td><td>JWT audience. Must be exactly <code>site-b</code>.</td></tr>
+          <tr><td><code>sub</code></td><td>string</td><td>Unique external identity from Site A, for example <code>owner:60000000</code> or <code>customer:63936541</code>.</td></tr>
+          <tr><td><code>jti</code></td><td>string</td><td>Unique token id. Site B stores it and rejects reused tokens.</td></tr>
+          <tr><td><code>iat</code></td><td>number</td><td>Issued-at Unix timestamp in seconds.</td></tr>
+          <tr><td><code>nbf</code></td><td>number</td><td>Not-before Unix timestamp in seconds. Optional but recommended.</td></tr>
+          <tr><td><code>exp</code></td><td>number</td><td>Expiry Unix timestamp in seconds. Controls how long the URL token stays valid.</td></tr>
+          <tr><td><code>role</code></td><td>string</td><td><code>owner</code> or <code>customer</code>. Site B provisions the correct portal from this field.</td></tr>
+          <tr><td><code>membership_status</code></td><td>string</td><td>Customer membership status from Site A. Use <code>active</code> for allowed customers.</td></tr>
+          <tr><td><code>shop.shopId</code></td><td>string</td><td>8-digit numeric Site A shop id. This is the main shop identity used by Site B.</td></tr>
+          <tr><td><code>shop.shopName</code></td><td>string</td><td>Display name of the shop from Site A.</td></tr>
+          <tr><td><code>customer.customerId</code></td><td>string</td><td>8-digit numeric customer/member id from Site A.</td></tr>
+          <tr><td><code>customer.displayName</code></td><td>string</td><td>Customer display name from Site A.</td></tr>
+          <tr><td><code>customer.phone</code></td><td>string</td><td>Customer phone number if Site A wants Site B to store/show it.</td></tr>
+          <tr><td><code>redirect.path</code></td><td>string</td><td>Target page inside Site B. Owner should use <code>/owner.html</code>, customer should use <code>/</code>.</td></tr>
+          <tr><td><code>redirect.txId</code></td><td>string|null</td><td>Optional Site B transaction id for direct open of a rejected/failed transaction.</td></tr>
+        </table>
+      </section>
+
+      <section>
+        <h2>Site A → Site B flow</h2>
+        <ol>
+          <li>Site A creates a JWT using <code>HS256</code> and the SSO shared secret.</li>
+          <li>Site A redirects the browser to the correct Site B entry URL with <code>ssoToken</code> in the query string.</li>
+          <li>Site B verifies the JWT, auto-creates the owner/customer if missing, then writes its own secure session cookie.</li>
+          <li>Site B removes the URL token from the address bar after login.</li>
+          <li>While the user is active in Site B, authenticated API actions refresh the session expiry automatically.</li>
+        </ol>
+        <div class="warn">The JWT is only for entry. After Site B verifies it, Site B switches to its own session cookie. Site A does not need to keep sending the JWT on every button click inside Site B.</div>
+      </section>
+
+      <section>
+        <h2>Working Site B URLs</h2>
+        <table>
+          <tr><th>Purpose</th><th>Method</th><th>Working URL</th></tr>
+          <tr><td>Owner browser entry</td><td><code>GET</code></td><td><code>https://top-up-automation.vercel.app/owner.html?ssoToken=&lt;JWT&gt;</code></td></tr>
+          <tr><td>Customer browser entry</td><td><code>GET</code></td><td><code>https://top-up-automation.vercel.app/?ssoToken=&lt;JWT&gt;</code></td></tr>
+          <tr><td>Explicit SSO exchange API</td><td><code>POST</code></td><td><code>https://top-up-automation.vercel.app/api/auth/sso-login</code></td></tr>
+          <tr><td>Pending count polling API</td><td><code>GET</code></td><td><code>https://top-up-automation.vercel.app/api/integration/sitea/pending-count?shopId=60000000</code></td></tr>
+        </table>
+
+        <h3>Explicit SSO exchange request</h3>
+        <pre>POST https://top-up-automation.vercel.app/api/auth/sso-login
+Content-Type: application/json
+
+{
+  "ssoToken": "&lt;JWT signed by Site A&gt;"
+}</pre>
+
+        <h3>Explicit SSO exchange response</h3>
+        <pre>{
+  "user": {
+    "role": "owner",
+    "ownerLogin": "60000000",
+    "authSource": "membership",
+    "externalMemberId": "owner:60000000",
+    "fullName": null,
+    "phone": null,
+    "shopId": "c6d4c1dc-2b77-4cfe-97f4-3ac6cb5d9b11",
+    "shopName": "表嫂美食",
+    "shopCode": "60000000"
+  },
+  "redirect": {
+    "path": "/owner.html",
+    "txId": null
+  }
+}</pre>
+      </section>
+
+      <section>
+        <h2>Site B → Site A callback events</h2>
+        <p>Site B signs all callback requests with these headers:</p>
+        <pre>X-Topup-Event: &lt;event name&gt;
+X-Topup-Timestamp: 2026-07-01T09:03:15.000Z
+X-Topup-Signature: &lt;hex hmac sha256 of "timestamp.body" using webhook shared secret&gt;</pre>
+
+        <h3>Approved callback</h3>
+        <p>Configure Site B env <code>SITEA_CALLBACK_APPROVED_ENDPOINT</code> to your Site A endpoint.</p>
+        <pre>{
+  "event": "topup.approved",
+  "eventId": "a4d99a78-d1ab-4e8c-84da-e2c2e20d8101",
+  "occurredAt": "2026-07-01T09:03:15.000Z",
+  "shopId": "60000000",
+  "shopName": "表嫂美食",
+  "customerId": "63936541",
+  "siteBTransactionId": "ecfdb0dc-1111-4444-8888-9c7b0d3c1a52",
+  "amount": "50.00",
+  "currency": "MOP",
+  "itemCount": 2,
+  "approvedAt": "2026-07-01T09:03:15.000Z",
+  "ownerLogin": "60000000",
+  "items": [
+    {
+      "itemId": "76083473-d9f6-4ad3-a34f-8be1e3612c11",
+      "merchantName": "表嫂美食",
+      "transactionOrderNo": "2026063017025097039814",
+      "allDetectedOrderNos": [
+        "2026063017025097039814",
+        "2026063017025000000018"
+      ],
+      "amount": "30.00",
+      "transactionTime": "2026-06-30 17:02:50",
+      "paymentMethod": "BOC Mobile Banking"
+    },
+    {
+      "itemId": "b92f924e-9fd2-43fc-afca-4236596f6c55",
+      "merchantName": "表嫂美食",
+      "transactionOrderNo": "2026063017031097039842",
+      "allDetectedOrderNos": [
+        "2026063017031097039842"
+      ],
+      "amount": "20.00",
+      "transactionTime": "2026-06-30 17:03:10",
+      "paymentMethod": "BOC Mobile Banking"
+    }
+  ]
+}</pre>
+
+        <h3>Rejected callback</h3>
+        <p>Configure Site B env <code>SITEA_CALLBACK_REJECTED_ENDPOINT</code> to your Site A endpoint.</p>
+        <pre>{
+  "event": "topup.rejected",
+  "eventId": "dd7f9b08-4443-4635-8c1a-c8bf0d19d143",
+  "occurredAt": "2026-07-01T09:04:02.000Z",
+  "shopId": "60000000",
+  "shopName": "表嫂美食",
+  "customerId": "63936541",
+  "siteBTransactionId": "ecfdb0dc-1111-4444-8888-9c7b0d3c1a52",
+  "reason": "Rejected by shop owner",
+  "deepLink": {
+    "siteBUrl": "https://top-up-automation.vercel.app/?txId=ecfdb0dc-1111-4444-8888-9c7b0d3c1a52",
+    "siteBPath": "/?txId=ecfdb0dc-1111-4444-8888-9c7b0d3c1a52",
+    "txId": "ecfdb0dc-1111-4444-8888-9c7b0d3c1a52"
+  }
+}</pre>
+
+        <h3>Pending-changed callback</h3>
+        <p>Configure Site B env <code>SITEA_CALLBACK_PENDING_ENDPOINT</code> to your Site A endpoint.</p>
+        <pre>{
+  "event": "shop.pending_changed",
+  "eventId": "2d68fa2a-c3d8-4864-b833-409ba607fbc5",
+  "occurredAt": "2026-07-01T09:05:10.000Z",
+  "shopId": "60000000",
+  "shopName": "表嫂美食",
+  "pendingCount": 12
+}</pre>
+      </section>
+
+      <section>
+        <h2>Pending-count polling API</h2>
+        <p>Site A can also actively poll Site B for the shop owner badge count.</p>
+        <pre>GET https://top-up-automation.vercel.app/api/integration/sitea/pending-count?shopId=60000000
+Authorization: Bearer &lt;owner JWT signed by Site A with the same SSO secret&gt;</pre>
+
+        <h3>Response</h3>
+        <pre>{
+  "shopId": "60000000",
+  "shopName": "表嫂美食",
+  "pendingCount": 12,
+  "updatedAt": "2026-07-01T09:06:20.000Z"
+}</pre>
+      </section>
+
+      <section>
+        <h2>Recommended Site B env vars</h2>
+        <pre>SITEA_SSO_ENABLED=true
+SITEA_SSO_SECRET=rsbh5ksO46Xn4E4ziPLg0HJI2sFjY_XH6QRAiJBUonSLVLlnvhE7s50CBVDvRCnH
+SITEA_SSO_ISSUER=site-a
+SITEA_SSO_AUDIENCE=site-b
+SITEA_CALLBACK_APPROVED_ENDPOINT=https://site-a.example.com/api/siteb/topup-approved
+SITEA_CALLBACK_REJECTED_ENDPOINT=https://site-a.example.com/api/siteb/topup-rejected
+SITEA_CALLBACK_PENDING_ENDPOINT=https://site-a.example.com/api/siteb/pending-changed
+SITEA_WEBHOOK_SECRET=-ZyIcXbL5gPvyOGnqTaK6ndwKtCKHiZEPyzuMybH7ma0h9HdOTpKjV7rh-5cA0pI
+PUBLIC_APP_BASE_URL=https://top-up-automation.vercel.app</pre>
+      </section>
+
+      <section>
+        <h2>Database update</h2>
+        <p>Functionally, the JWT entry can run with the current schema. The recommended SQL update adds a durable integration event log table so approved/rejected/pending callbacks can be audited and retried more safely.</p>
+        <p>SQL file prepared in this workspace: <code>supabase/sitea_jwt_integration.sql</code></p>
+      </section>
+    </main>
+  </body>
+</html>

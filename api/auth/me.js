@@ -1,5 +1,5 @@
 import { getShopById, applyCors } from "../../lib/topup-service.js";
-import { readSession } from "../../lib/session.js";
+import { readSession, refreshSession } from "../../lib/session.js";
 
 export default async function handler(req, res) {
   applyCors(req, res);
@@ -18,6 +18,7 @@ export default async function handler(req, res) {
     if (!session) {
       return res.status(200).json({ user: null });
     }
+    refreshSession(res, session);
 
     const shop = session.shopId ? await getShopById(session.shopId) : null;
 

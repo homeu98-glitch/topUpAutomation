@@ -103,6 +103,33 @@ table {
   transform: translateY(1px);
 }
 
+.history-button {
+  height: 44px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.history-button:active {
+  transform: translateY(1px);
+}
+
+.history-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.history-text {
+  font-size: 13px;
+}
+
 .full-width-button {
   width: 100%;
 }

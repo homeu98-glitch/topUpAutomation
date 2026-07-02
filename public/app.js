@@ -988,7 +988,7 @@ customerReturnBottomButton.addEventListener("click", returnToSiteA);
 customerReturnBarButton.addEventListener("click", returnToSiteA);
 customerAccessReturnButton?.addEventListener("click", returnToSiteA);
 
-customerMenuLogoutButton.addEventListener("click", async () => {
+customerMenuLogoutButton?.addEventListener("click", async () => {
   await logoutCustomer();
   customerMenuDialog.close();
 });

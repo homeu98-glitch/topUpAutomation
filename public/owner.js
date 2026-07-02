@@ -44,7 +44,7 @@ const ownerLoginInput = document.getElementById("ownerLoginInput");
 const ownerPasswordInput = document.getElementById("ownerPasswordInput");
 const ownerLoginButton = document.getElementById("ownerLoginButton");
 const ownerAccessReturnButton = document.getElementById("ownerAccessReturnButton");
-const ownerLogoutButton = document.getElementById("ownerLogoutButton");
+const ownerReturnTopButton = document.getElementById("ownerReturnTopButton");
 const autoApproveButton = document.getElementById("autoApproveButton");
 const liveModeButton = document.getElementById("liveModeButton");
 const pendingTabBadge = document.getElementById("pendingTabBadge");
@@ -92,7 +92,7 @@ const mobileMenuAutoApproveButton = document.getElementById("mobileMenuAutoAppro
 const mobileMenuLiveModeButton = document.getElementById("mobileMenuLiveModeButton");
 const mobileMenuRefreshButton = document.getElementById("mobileMenuRefreshButton");
 const mobileMenuBatchApproveButton = document.getElementById("mobileMenuBatchApproveButton");
-const mobileMenuLogoutButton = document.getElementById("mobileMenuLogoutButton");
+const mobileMenuReturnButton = document.getElementById("mobileMenuReturnButton");
 const mobileCustomerSearchInput = document.getElementById("mobileCustomerSearchInput");
 const mobileCustomerSearchButton = document.getElementById("mobileCustomerSearchButton");
 const mobileCustomerSearchClearButton = document.getElementById("mobileCustomerSearchClearButton");
@@ -1234,9 +1234,9 @@ mobileMenuRefreshButton.addEventListener("click", async () => {
   await loadOwnerData({ showOverlay: true, loadingText: "正在刷新資料...", showRefreshStatus: true, runAutoApprove: true, refreshMeta: true });
 });
 
-mobileMenuLogoutButton.addEventListener("click", async () => {
+mobileMenuReturnButton?.addEventListener("click", () => {
   mobileOwnerMenuDialog.close();
-  await logoutOwner();
+  returnToSiteA();
 });
 
 confirmAutoApproveButton.addEventListener("click", async () => {
@@ -1249,7 +1249,7 @@ disableAutoApproveButton.addEventListener("click", async () => {
 
 ownerLoginButton?.addEventListener("click", loginOwner);
 ownerAccessReturnButton?.addEventListener("click", returnToSiteA);
-ownerLogoutButton.addEventListener("click", logoutOwner);
+ownerReturnTopButton?.addEventListener("click", returnToSiteA);
 refreshDashboardButton.addEventListener("click", async () => {
   invalidateTransactionCache();
   await loadOwnerData({ showOverlay: true, loadingText: "正在刷新資料...", showRefreshStatus: true, runAutoApprove: true, refreshMeta: true });

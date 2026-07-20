@@ -1030,7 +1030,8 @@ th {
   border: 2px solid #9333ea !important;
 }
 
-#ownerDialogImage.ai-skipped-preview {
+#ownerDialogImage.ai-skipped-preview,
+#adminDialogImage.ai-skipped-preview {
   border: 3px solid #9333ea;
   border-radius: 18px;
 }
@@ -1107,17 +1108,20 @@ th {
   border: 2px solid #f9ab00 !important;
 }
 
-#ownerDialogImage.verified-preview {
+#ownerDialogImage.verified-preview,
+#adminDialogImage.verified-preview {
   border: 3px solid #188038;
   border-radius: 18px;
 }
 
-#ownerDialogImage.failed-preview {
+#ownerDialogImage.failed-preview,
+#adminDialogImage.failed-preview {
   border: 3px solid #d93025;
   border-radius: 18px;
 }
 
-#ownerDialogImage.partial-verified-preview {
+#ownerDialogImage.partial-verified-preview,
+#adminDialogImage.partial-verified-preview {
   border: 3px solid #f9ab00;
   border-radius: 18px;
 }

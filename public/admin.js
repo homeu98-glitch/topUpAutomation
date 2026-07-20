@@ -56,14 +56,17 @@ function formatDateTime(value) {
 }
 
 function getVerificationMeta(status) {
+  if (status === "ai_skipped") {
+    return { tagClass: "ai-skipped-tag", thumbClass: "ai-skipped-thumb", label: "AI 未辨識，需人工核對" };
+  }
   if (status === "verified_amount_and_id") {
-    return { tagClass: "verified-tag", thumbClass: "verified-thumb", label: "Verified amount and ID" };
+    return { tagClass: "verified-tag", thumbClass: "verified-thumb", label: "單號及金額已核實" };
   }
   if (status === "verified_id_only") {
-    return { tagClass: "partial-verified-tag", thumbClass: "partial-verified-thumb", label: "Verified ID only" };
+    return { tagClass: "partial-verified-tag", thumbClass: "partial-verified-thumb", label: "僅單號已核實（需人工核對金額）" };
   }
   if (status === "no_match") {
-    return { tagClass: "failed-tag", thumbClass: "failed-thumb", label: "No ID Match" };
+    return { tagClass: "failed-tag", thumbClass: "failed-thumb", label: "單號不匹配" };
   }
   return null;
 }
@@ -141,6 +144,9 @@ function renderDashboard(stats) {
 function renderDetailDialog(transaction) {
   const shopName = transaction?.shops?.name || "-";
   const shopCode = transaction?.shops?.code || "-";
+  const hasMissingAmount = (transaction.items || []).some(
+    (item) => !Number(item?.manualAmount || item?.extracted?.amount || 0) || Number(item?.manualAmount || item?.extracted?.amount || 0) <= 0
+  );
   adminDetailContent.innerHTML = `
     <div class="section-header">
       <h3>交易調查明細</h3>
@@ -152,6 +158,7 @@ function renderDetailDialog(transaction) {
       <span class="pill subtle-pill">提交時間：${formatDateTime(transaction.submitted_at)}</span>
       <span class="pill subtle-pill">店主操作：${transaction.approved_by || "-"}</span>
     </div>
+    ${hasMissingAmount ? `<div class="missing-amount-banner">此交易內容沒有金額，請先填寫「可編輯金額」後才能核准。</div>` : ""}
     <div class="detail-list owner-detail-list">
       ${(transaction.items || [])
         .map(
@@ -162,7 +169,7 @@ function renderDetailDialog(transaction) {
                 <span class="pill">${formatCurrency(item?.manualAmount || item?.extracted?.amount)}</span>
               </div>
               <div class="owner-item-grid">
-                <button class="thumb-button admin-detail-thumb ${getVerificationMeta(item?.verificationStatus)?.thumbClass || ""}" type="button" data-src="${item.previewUrl}" data-alt="交易明細 ${index + 1}">
+                <button class="thumb-button admin-detail-thumb ${getVerificationMeta(item?.verificationStatus)?.thumbClass || ""}" type="button" data-src="${item.previewUrl}" data-alt="交易明細 ${index + 1}" data-verification-status="${item?.verificationStatus || ""}">
                   <img src="${item.previewUrl}" alt="交易明細 ${index + 1}" />
                 </button>
                 <span>商戶：${item?.extracted?.merchantName || "-"}</span>
@@ -177,7 +184,7 @@ function renderDetailDialog(transaction) {
                 <span>匹配欄位：${item?.verificationMatchedSource || "-"}</span>
                 <span>mPay 黃金金額：${item?.verificationBackofficeAmount ? formatCurrency(item.verificationBackofficeAmount) : "-"}</span>
                 <span>金額是否一致：${
-                  item?.verificationAmountMatched == null ? "-" : item.verificationAmountMatched ? "Yes" : "No, auto corrected"
+                  item?.verificationAmountMatched == null ? "-" : item.verificationAmountMatched ? "是" : "否（已按 mPay 後台自動校正）"
                 }</span>
                 <span>金額：${item?.manualAmount || item?.extracted?.amount || "-"}</span>
                 <span>時間：${item?.extracted?.transactionTime || "-"}</span>
@@ -193,7 +200,7 @@ function renderDetailDialog(transaction) {
 
   adminDetailDialog.showModal();
   adminDetailContent.querySelectorAll(".admin-detail-thumb").forEach((button) => {
-    button.addEventListener("click", () => showImageDialog(button.dataset.src, button.dataset.alt || "交易圖片"));
+    button.addEventListener("click", () => showImageDialog(button.dataset.src, button.dataset.alt || "交易圖片", button.dataset.verificationStatus || ""));
   });
 }
 
@@ -203,7 +210,13 @@ function renderPagination() {
   adminNextPageButton.disabled = state.page >= state.pageCount || state.pageSize === "all";
 }
 
-function showImageDialog(src, alt) {
+function showImageDialog(src, alt, verificationStatus = "") {
+  adminDialogImage.classList.remove("ai-skipped-preview", "verified-preview", "partial-verified-preview", "failed-preview");
+  const verificationMeta = getVerificationMeta(verificationStatus);
+  if (verificationMeta?.thumbClass === "verified-thumb") adminDialogImage.classList.add("verified-preview");
+  if (verificationMeta?.thumbClass === "partial-verified-thumb") adminDialogImage.classList.add("partial-verified-preview");
+  if (verificationMeta?.thumbClass === "failed-thumb") adminDialogImage.classList.add("failed-preview");
+  if (verificationMeta?.thumbClass === "ai-skipped-thumb") adminDialogImage.classList.add("ai-skipped-preview");
   adminDialogImage.src = src;
   adminDialogImage.alt = alt;
   adminImageDialog.showModal();
@@ -235,7 +248,7 @@ function renderTransactions(rows) {
                 .slice(0, 3)
                 .map(
                   (item, index) => `
-                    <button class="thumb-button admin-thumb-button ${getVerificationMeta(item?.verificationStatus)?.thumbClass || ""}" type="button" data-src="${item.previewUrl}" data-alt="交易明細 ${index + 1}">
+                    <button class="thumb-button admin-thumb-button ${getVerificationMeta(item?.verificationStatus)?.thumbClass || ""}" type="button" data-src="${item.previewUrl}" data-alt="交易明細 ${index + 1}" data-verification-status="${item?.verificationStatus || ""}">
                       <img src="${item.previewUrl}" alt="交易明細 ${index + 1}" />
                     </button>
                   `
@@ -259,7 +272,7 @@ function renderTransactions(rows) {
     .join("");
 
   adminTransactionTableBody.querySelectorAll(".admin-thumb-button").forEach((button) => {
-    button.addEventListener("click", () => showImageDialog(button.dataset.src, button.dataset.alt || "交易圖片"));
+    button.addEventListener("click", () => showImageDialog(button.dataset.src, button.dataset.alt || "交易圖片", button.dataset.verificationStatus || ""));
   });
   adminTransactionTableBody.querySelectorAll(".admin-detail-button").forEach((button) => {
     button.addEventListener("click", () => {

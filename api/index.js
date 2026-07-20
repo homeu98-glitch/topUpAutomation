@@ -78,6 +78,11 @@ export default async function handler(req, res) {
     return submitHandler(req, res);
   }
 
+  if (pathname.endsWith("/customer/submit-raw")) {
+    const { default: submitRawHandler } = await import("./customer/submit-raw.js");
+    return submitRawHandler(req, res);
+  }
+
   if (pathname.endsWith("/customer/transactions")) {
     const { default: customerTransactionsHandler } = await import("./customer/transactions.js");
     return customerTransactionsHandler(req, res);

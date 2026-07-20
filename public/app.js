@@ -66,6 +66,12 @@ const customerLoadingOverlay = document.getElementById("customerLoadingOverlay")
 const customerLoadingTitle = document.getElementById("customerLoadingTitle");
 const customerLoadingMessage = document.getElementById("customerLoadingMessage");
 const customerAccessReturnButton = document.getElementById("customerAccessReturnButton");
+const aiSkipCard = document.getElementById("aiSkipCard");
+const aiSkipOpenButton = document.getElementById("aiSkipOpenButton");
+const aiSkipConfirmDialog = document.getElementById("aiSkipConfirmDialog");
+const aiSkipCloseButton = document.getElementById("aiSkipCloseButton");
+const aiSkipCancelButton = document.getElementById("aiSkipCancelButton");
+const aiSkipConfirmButton = document.getElementById("aiSkipConfirmButton");
 
 function formatCurrency(value) {
   return `MOP ${Number(value || 0).toFixed(2)}`;
@@ -91,6 +97,7 @@ function showError(message) {
 function resetError() {
   errorCard.classList.add("hidden");
   errorCard.textContent = "";
+  aiSkipCard?.classList.add("hidden");
 }
 
 function showStatus(message, type = "info") {
@@ -817,18 +824,68 @@ async function analyzeFiles(filesToAnalyze = state.selectedFiles, options = {}) 
     const payload = await parseApiResponse(response);
     if (!response.ok) throw new Error(payload.error || "辨識失敗");
     if (payload.hasDuplicates) {
-      showError("duplicated record, please reupload.");
+      showError("發現重複交易編號，請重新上傳。");
       return false;
     }
     renderResults(append ? mergeAnalyzedPayload(state.analyzedPayload, payload) : payload);
     return true;
   } catch (error) {
-    showError(error instanceof Error ? error.message : "系統錯誤，請稍後再試。");
+    const message = error instanceof Error ? error.message : "系統錯誤，請稍後再試。";
+    showError(message);
+    if (/AI|辨識失敗|503|504|timeout/i.test(message)) {
+      aiSkipCard?.classList.remove("hidden");
+    }
     return false;
   } finally {
     setCustomerBlockingOverlay(false);
   }
 }
+
+async function submitRawForApproval() {
+  resetError();
+  if (!state.selectedFiles.length) {
+    showError("請先選擇至少一張圖片。");
+    return;
+  }
+  if (!getActiveShopId() || getActiveShopId() === "fallback-shop") {
+    showError("請先選擇有效店舖。");
+    return;
+  }
+
+  setCustomerBlockingOverlay(true, "送審中", "AI 暫時不可用，系統正在直接送出圖片給店主人工審核。");
+  try {
+    const formData = new FormData();
+    state.selectedFiles.forEach((file) => formData.append("images", file));
+    formData.append("shopId", getActiveShopId());
+
+    const response = await fetch(`${apiBaseUrl}/api/customer/submit-raw`, {
+      method: "POST",
+      credentials: "include",
+      body: formData,
+    });
+    const payload = await parseApiResponse(response);
+    if (!response.ok) throw new Error(payload.error || "送審失敗");
+
+    showStatus(`AI 暫時不可用，已直接送交店主人工審核。交易編號：${payload.transactionId}`, "success");
+    clearCustomerSubmissionState();
+    setConfirmState(false);
+    await loadCustomerTransactions();
+  } catch (error) {
+    showError(error instanceof Error ? error.message : "送審失敗");
+  } finally {
+    setCustomerBlockingOverlay(false);
+  }
+}
+
+aiSkipOpenButton?.addEventListener("click", () => {
+  aiSkipConfirmDialog?.showModal();
+});
+aiSkipCloseButton?.addEventListener("click", () => aiSkipConfirmDialog?.close());
+aiSkipCancelButton?.addEventListener("click", () => aiSkipConfirmDialog?.close());
+aiSkipConfirmButton?.addEventListener("click", async () => {
+  aiSkipConfirmDialog?.close();
+  await submitRawForApproval();
+});
 
 async function submitForApproval() {
   resetError();

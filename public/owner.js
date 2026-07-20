@@ -107,6 +107,17 @@ function formatDateTime(value) {
 }
 
 function getVerificationMeta(status) {
+  if (status === "ai_skipped") {
+    return {
+      tagClass: "ai-skipped-tag",
+      bannerClass: "ai-skipped-banner",
+      thumbClass: "ai-skipped-thumb",
+      itemClass: "ai-skipped-item",
+      previewClass: "ai-skipped-preview",
+      label: "AI 未辨識，需人工核對",
+      shortLabel: "AI 未辨識",
+    };
+  }
   if (status === "verified_amount_and_id") {
     return {
       tagClass: "verified-tag",
@@ -114,8 +125,8 @@ function getVerificationMeta(status) {
       thumbClass: "verified-thumb",
       itemClass: "verified-item",
       previewClass: "verified-preview",
-      label: "Verified amount and ID",
-      shortLabel: "Verified amount and ID",
+      label: "單號及金額已核實",
+      shortLabel: "已核實",
     };
   }
   if (status === "verified_id_only") {
@@ -125,8 +136,8 @@ function getVerificationMeta(status) {
       thumbClass: "partial-verified-thumb",
       itemClass: "partial-verified-item",
       previewClass: "partial-verified-preview",
-      label: "Verified ID only",
-      shortLabel: "Verified ID only",
+      label: "僅單號已核實（需人工核對金額）",
+      shortLabel: "僅核實單號",
     };
   }
   if (status === "no_match") {
@@ -136,8 +147,8 @@ function getVerificationMeta(status) {
       thumbClass: "failed-thumb",
       itemClass: "failed-item",
       previewClass: "failed-preview",
-      label: "No ID Match",
-      shortLabel: "No ID Match",
+      label: "單號不匹配",
+      shortLabel: "不匹配",
     };
   }
   return null;
@@ -267,6 +278,14 @@ function showDetailDialog(transaction) {
       const verificationMeta = getVerificationMeta(transaction.verificationStatus);
       return verificationMeta ? `<div class="${verificationMeta.bannerClass}">${verificationMeta.label}</div>` : "";
     })()}
+    ${(() => {
+      const hasMissingAmount = (transaction.items || []).some(
+        (item) => !Number(item?.extracted?.amount || 0) || Number(item?.extracted?.amount || 0) <= 0
+      );
+      return hasMissingAmount
+        ? `<div class="missing-amount-banner">此交易內容沒有金額，請先填寫「可編輯金額」後才能核准。</div>`
+        : "";
+    })()}
     <div class="detail-edit-summary">
       <label class="edit-field prominent-edit-field">
         <span>總金額</span>
@@ -307,7 +326,7 @@ function showDetailDialog(transaction) {
                 <span>匹配單號：${item?.verificationMatchedOrderNo || "-"}</span>
                 <span>匹配欄位：${item?.verificationMatchedSource || "-"}</span>
                 <span>金額是否一致：${
-                  item?.verificationAmountMatched == null ? "-" : item.verificationAmountMatched ? "Yes" : "No, auto corrected"
+                  item?.verificationAmountMatched == null ? "-" : item.verificationAmountMatched ? "是" : "否（已按 mPay 後台自動校正）"
                 }</span>
                 <span>金額：${item?.extracted?.amount || "-"}</span>
                 <span>時間：${item?.extracted?.transactionTime || "-"}</span>
@@ -398,9 +417,9 @@ function renderOwnerSession() {
   autoApproveButton.textContent = state.autoApproveEnabled
     ? `自動核准中（${Math.max(0, state.autoApproveRemainingSeconds || state.autoApproveIntervalSeconds)} 秒）`
     : "設定自動核准";
-  liveModeButton.textContent = `Live Mode: ${state.liveModeEnabled ? "On" : "Off"}`;
+  liveModeButton.textContent = `即時模式：${state.liveModeEnabled ? "開" : "關"}`;
   liveModeButton.classList.toggle("active-live-toggle", state.liveModeEnabled);
-  mobileMenuLiveModeButton.textContent = `Live Mode: ${state.liveModeEnabled ? "On" : "Off"}`;
+  mobileMenuLiveModeButton.textContent = `即時模式：${state.liveModeEnabled ? "開" : "關"}`;
   mobileMenuLiveModeButton.classList.toggle("active-live-toggle", state.liveModeEnabled);
   pendingTabBadge.textContent = String(state.pendingCount || 0);
   pendingTabBadge.classList.toggle("hidden", !state.pendingCount);

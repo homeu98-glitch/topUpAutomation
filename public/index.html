@@ -75,6 +75,15 @@
         </section>
 
         <section id="errorCard" class="card error-card hidden"></section>
+        <section id="aiSkipCard" class="card warning-card hidden">
+          <div class="section-header">
+            <h2>AI 暫時不可用</h2>
+          </div>
+          <p class="subtitle compact-subtitle">
+            你仍然可以先把圖片送交店主審核，但系統不會自動辨識交易內容，店主需要手動填寫金額與核對單號。
+          </p>
+          <button id="aiSkipOpenButton" class="secondary-button" type="button">直接送審（不辨識）</button>
+        </section>
 
         <section id="resultCard" class="hidden">
           <section id="submitStatusCard" class="card success-card hidden"></section>
@@ -116,6 +125,20 @@
         <button id="refreshCustomerTransactionsButton" class="secondary-button" type="button">重新整理</button>
       </div>
       <div id="customerTransactionList" class="transaction-list" style="margin-top: 12px;"></div>
+    </dialog>
+
+    <dialog id="aiSkipConfirmDialog" class="image-dialog menu-dialog">
+      <button id="aiSkipCloseButton" class="dialog-close" type="button">關閉</button>
+      <div class="section-header" style="margin-top: 6px;">
+        <h2>確認直接送審</h2>
+      </div>
+      <p class="subtitle compact-subtitle">
+        AI 暫時不可用，此次送審將不包含交易金額與交易編號，店主需要手動填寫後才能核准。
+      </p>
+      <div class="dialog-actions">
+        <button id="aiSkipCancelButton" class="secondary-button" type="button">取消</button>
+        <button id="aiSkipConfirmButton" class="primary-button" type="button">確認送審</button>
+      </div>
     </dialog>
 
     <div id="customerBottomBar" class="bottom-bar hidden">

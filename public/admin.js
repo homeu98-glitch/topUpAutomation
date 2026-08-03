@@ -16,6 +16,10 @@ const state = {
   shops: [],
   selectedShopId: "",
   selectedIds: new Set(),
+  autoApproveEnabled: false,
+  autoApproveIntervalSeconds: 300,
+  autoApproveAllowedStatuses: ["verified_amount_and_id"],
+  autoApproveBulkShopIds: [],
 };
 
 const adminErrorCard = document.getElementById("adminErrorCard");
@@ -52,6 +56,22 @@ const adminDetailContent = document.getElementById("adminDetailContent");
 const adminCloseDetailButton = document.getElementById("adminCloseDetailButton");
 const adminLoadingOverlay = document.getElementById("adminLoadingOverlay");
 const adminLoadingText = document.getElementById("adminLoadingText");
+const adminAutoApproveDialog = document.getElementById("adminAutoApproveDialog");
+const adminCloseAutoApproveDialogButton = document.getElementById("adminCloseAutoApproveDialogButton");
+const adminAutoApproveDialogTitle = document.getElementById("adminAutoApproveDialogTitle");
+const adminAutoApproveStateBadge = document.getElementById("adminAutoApproveStateBadge");
+const adminAutoApproveDialogNote = document.getElementById("adminAutoApproveDialogNote");
+const adminAutoApproveIntervalInput = document.getElementById("adminAutoApproveIntervalInput");
+const adminBulkShopPicker = document.getElementById("adminBulkShopPicker");
+const adminBulkShopList = document.getElementById("adminBulkShopList");
+const adminAutoApproveAllowVerified = document.getElementById("adminAutoApproveAllowVerified");
+const adminAutoApproveAllowIdOnly = document.getElementById("adminAutoApproveAllowIdOnly");
+const adminAutoApproveAllowAiSkipped = document.getElementById("adminAutoApproveAllowAiSkipped");
+const adminAutoApproveAllowNoMatch = document.getElementById("adminAutoApproveAllowNoMatch");
+const adminDisableAutoApproveButton = document.getElementById("adminDisableAutoApproveButton");
+const adminSaveAutoApproveButton = document.getElementById("adminSaveAutoApproveButton");
+const adminRunAutoApproveNowButton = document.getElementById("adminRunAutoApproveNowButton");
+const adminConfirmAutoApproveButton = document.getElementById("adminConfirmAutoApproveButton");
 
 function formatCurrency(value) {
   return `MOP ${Number(value || 0).toFixed(2)}`;
@@ -141,6 +161,57 @@ function renderShops() {
       )
     )
     .join("");
+}
+
+function getCurrentAutoApproveAllowedStatuses() {
+  const selected = [];
+  if (adminAutoApproveAllowVerified?.checked) selected.push("verified_amount_and_id");
+  if (adminAutoApproveAllowIdOnly?.checked) selected.push("verified_id_only");
+  if (adminAutoApproveAllowAiSkipped?.checked) selected.push("ai_skipped");
+  if (adminAutoApproveAllowNoMatch?.checked) selected.push("no_match");
+  return selected;
+}
+
+function renderAdminBulkShopList() {
+  if (!adminBulkShopList) return;
+  adminBulkShopList.innerHTML = (state.shops || [])
+    .map((shop) => {
+      const checked = state.autoApproveBulkShopIds.includes(shop.id) ? "checked" : "";
+      return `<label class="check-row"><input class="admin-bulk-shop-checkbox" type="checkbox" value="${shop.id}" ${checked} /> ${shop.name}</label>`;
+    })
+    .join("");
+  adminBulkShopList.querySelectorAll(".admin-bulk-shop-checkbox").forEach((checkbox) => {
+    checkbox.addEventListener("change", () => {
+      const next = new Set(state.autoApproveBulkShopIds);
+      if (checkbox.checked) next.add(checkbox.value);
+      else next.delete(checkbox.value);
+      state.autoApproveBulkShopIds = [...next];
+      syncAdminAutoApproveDialog();
+    });
+  });
+}
+
+function syncAdminAutoApproveDialog() {
+  const isBulkMode = !state.selectedShopId;
+  const selectedShop = state.shops.find((shop) => String(shop.id) === String(state.selectedShopId));
+  adminAutoApproveDialogTitle.textContent = isBulkMode ? "批量設定自動核准" : `${selectedShop?.name || "商家"} 自動核准設定`;
+  adminAutoApproveStateBadge.textContent = isBulkMode ? `已選 ${state.autoApproveBulkShopIds.length} 家商家` : state.autoApproveEnabled ? "已啟用" : "未啟用";
+  adminAutoApproveDialogNote.textContent = isBulkMode
+    ? "可一次設定多家商家的自動核准，並立即對所選商家執行一次。"
+    : "管理員可替該商家設定自動核准，並立即執行一次。";
+  adminAutoApproveIntervalInput.value = String(state.autoApproveIntervalSeconds || 300);
+  adminBulkShopPicker.classList.toggle("hidden", !isBulkMode);
+  adminDisableAutoApproveButton.textContent = isBulkMode ? "批量停止" : "停止自動核准";
+  if (adminAutoApproveAllowVerified) adminAutoApproveAllowVerified.checked = state.autoApproveAllowedStatuses.includes("verified_amount_and_id");
+  if (adminAutoApproveAllowIdOnly) adminAutoApproveAllowIdOnly.checked = state.autoApproveAllowedStatuses.includes("verified_id_only");
+  if (adminAutoApproveAllowAiSkipped) adminAutoApproveAllowAiSkipped.checked = state.autoApproveAllowedStatuses.includes("ai_skipped");
+  if (adminAutoApproveAllowNoMatch) adminAutoApproveAllowNoMatch.checked = state.autoApproveAllowedStatuses.includes("no_match");
+  if (isBulkMode) renderAdminBulkShopList();
+  const shouldDisableActions = isBulkMode && !state.autoApproveBulkShopIds.length;
+  adminRunAutoApproveNowButton.disabled = shouldDisableActions;
+  adminConfirmAutoApproveButton.disabled = shouldDisableActions;
+  adminSaveAutoApproveButton.disabled = shouldDisableActions;
+  adminDisableAutoApproveButton.disabled = shouldDisableActions;
 }
 
 function renderDashboard(stats) {
@@ -330,19 +401,118 @@ async function runBatchApprove() {
   }
 }
 
-async function runAutoApproveSweep() {
+async function loadAutoApproveSettingsForDialog() {
+  if (!state.selectedShopId) {
+    state.autoApproveEnabled = false;
+    state.autoApproveIntervalSeconds = 300;
+    state.autoApproveAllowedStatuses = ["verified_amount_and_id"];
+    state.autoApproveBulkShopIds = state.shops.map((shop) => shop.id);
+    syncAdminAutoApproveDialog();
+    return;
+  }
   try {
-    const payload = await apiFetch("/api/admin/auto-approve-sweep", {
-      method: "POST",
-      body: JSON.stringify({ shopId: state.selectedShopId || "" }),
-    });
+    const payload = await apiFetch(`/api/admin/shop-settings?shopId=${encodeURIComponent(state.selectedShopId)}`);
+    state.autoApproveEnabled = Boolean(payload.settings?.auto_approve_enabled);
+    state.autoApproveIntervalSeconds = Math.max(1, Number(payload.settings?.auto_approve_interval_minutes) || 300);
+    state.autoApproveAllowedStatuses = ["verified_amount_and_id"];
+    state.autoApproveBulkShopIds = [state.selectedShopId];
+    syncAdminAutoApproveDialog();
+  } catch (error) {
+    showError(error instanceof Error ? error.message : "讀取自動核准設定失敗");
+  }
+}
+
+async function updateAdminAutoApproveSettings(autoApproveEnabled) {
+  const intervalSeconds = Math.max(1, Number(adminAutoApproveIntervalInput.value) || state.autoApproveIntervalSeconds || 300);
+  const selectedStatuses = getCurrentAutoApproveAllowedStatuses();
+  if (!selectedStatuses.includes("verified_amount_and_id")) {
+    showError("目前自動核准只支援綠色（單號及金額已核實）交易，請至少勾選綠色選項。");
+    return false;
+  }
+
+  try {
+    adminConfirmAutoApproveButton.disabled = true;
+    adminDisableAutoApproveButton.disabled = true;
+    adminSaveAutoApproveButton.disabled = true;
+    adminRunAutoApproveNowButton.disabled = true;
+
+    if (state.selectedShopId) {
+      await apiFetch("/api/admin/shop-settings", {
+        method: "POST",
+        body: JSON.stringify({
+          shopId: state.selectedShopId,
+          autoApproveEnabled,
+          autoApproveIntervalSeconds: intervalSeconds,
+        }),
+      });
+      const targetShop = state.shops.find((shop) => String(shop.id) === String(state.selectedShopId));
+      if (targetShop) {
+        targetShop.auto_approve_enabled = autoApproveEnabled;
+        targetShop.auto_approve_interval_minutes = intervalSeconds;
+      }
+    } else {
+      if (!state.autoApproveBulkShopIds.length) {
+        showError("請先選擇要套用設定的商家。");
+        return false;
+      }
+      const payload = await apiFetch("/api/admin/bulk-shop-settings", {
+        method: "POST",
+        body: JSON.stringify({
+          shopIds: state.autoApproveBulkShopIds,
+          autoApproveEnabled,
+          autoApproveIntervalSeconds: intervalSeconds,
+        }),
+      });
+      const updatedMap = new Map((payload.settings || []).map((shop) => [String(shop.id), shop]));
+      state.shops = state.shops.map((shop) => updatedMap.get(String(shop.id)) || shop);
+      renderShops();
+    }
+
+    state.autoApproveEnabled = autoApproveEnabled;
+    state.autoApproveIntervalSeconds = intervalSeconds;
+    state.autoApproveAllowedStatuses = selectedStatuses;
+    syncAdminAutoApproveDialog();
+    await loadAdminData({ showOverlay: true, loadingText: "正在刷新資料..." });
+    return true;
+  } catch (error) {
+    showError(error instanceof Error ? error.message : "更新自動核准設定失敗");
+    return false;
+  } finally {
+    adminConfirmAutoApproveButton.disabled = false;
+    adminDisableAutoApproveButton.disabled = false;
+    adminSaveAutoApproveButton.disabled = false;
+    adminRunAutoApproveNowButton.disabled = false;
+    syncAdminAutoApproveDialog();
+  }
+}
+
+async function runAutoApproveSweep(shopIds = []) {
+  try {
+    let approvedTotal = 0;
+    if (Array.isArray(shopIds) && shopIds.length) {
+      for (const shopId of shopIds) {
+        const payload = await apiFetch("/api/admin/auto-approve-sweep", {
+          method: "POST",
+          body: JSON.stringify({ shopId }),
+        });
+        approvedTotal += Number(payload.approvedCount || 0);
+      }
+    } else {
+      const payload = await apiFetch("/api/admin/auto-approve-sweep", {
+        method: "POST",
+        body: JSON.stringify({ shopId: state.selectedShopId || "" }),
+      });
+      approvedTotal += Number(payload.approvedCount || 0);
+    }
     state.selectedIds.clear();
     await loadAdminData({ showOverlay: true, loadingText: "正在執行自動核准並刷新資料..." });
-    if ((payload.approvedCount || 0) === 0) {
+    if (approvedTotal === 0) {
       showError("已執行自動核准，但目前沒有符合規則的交易。");
     }
+    return true;
   } catch (error) {
     showError(error instanceof Error ? error.message : "執行自動核准失敗");
+    return false;
   }
 }
 
@@ -580,7 +750,8 @@ adminBatchApproveButton.addEventListener("click", async () => {
 });
 
 adminAutoApproveSweepButton.addEventListener("click", async () => {
-  await runAutoApproveSweep();
+  await loadAutoApproveSettingsForDialog();
+  adminAutoApproveDialog.showModal();
 });
 
 adminRefreshButton.addEventListener("click", async () => {
@@ -613,6 +784,37 @@ adminNextPageButton.addEventListener("click", async () => {
 
 adminCloseDialogButton.addEventListener("click", () => adminImageDialog.close());
 adminCloseDetailButton.addEventListener("click", () => adminDetailDialog.close());
+adminCloseAutoApproveDialogButton.addEventListener("click", () => adminAutoApproveDialog.close());
+
+adminConfirmAutoApproveButton.addEventListener("click", async () => {
+  const ok = await updateAdminAutoApproveSettings(true);
+  if (ok && state.selectedShopId) {
+    adminAutoApproveDialog.close();
+  }
+});
+
+adminSaveAutoApproveButton.addEventListener("click", async () => {
+  await updateAdminAutoApproveSettings(state.selectedShopId ? state.autoApproveEnabled : true);
+});
+
+adminDisableAutoApproveButton.addEventListener("click", async () => {
+  const ok = await updateAdminAutoApproveSettings(false);
+  if (ok) {
+    adminAutoApproveDialog.close();
+  }
+});
+
+adminRunAutoApproveNowButton.addEventListener("click", async () => {
+  const targetShopIds = state.selectedShopId ? [state.selectedShopId] : state.autoApproveBulkShopIds;
+  if (!targetShopIds.length) {
+    showError("請先選擇要執行自動核准的商家。");
+    return;
+  }
+  const ok = await runAutoApproveSweep(targetShopIds);
+  if (ok) {
+    adminAutoApproveDialog.close();
+  }
+});
 
 window.addEventListener("load", async () => {
   try {

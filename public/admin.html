@@ -11,12 +11,12 @@
       <header class="hero hero-compact owner-hero">
         <div>
           <h1>管理員後台</h1>
-          <p class="subtitle">跨店舖查看所有交易紀錄，只供調查與追查，不提供任何核准或拒絕操作。</p>
+          <p class="subtitle">跨店舖查看與管理交易紀錄，可代商家調整資料、核准、拒絕及設定自動核准。</p>
         </div>
         <div class="owner-hero-actions">
           <div id="adminHeaderSession" class="header-session hidden">
             <span id="adminNameBadge" class="pill">未登入</span>
-            <span class="pill subtle-pill">只讀模式</span>
+            <span class="pill subtle-pill">管理模式</span>
             <button id="adminLogoutButton" class="secondary-button" type="button">登出</button>
           </div>
         </div>
@@ -123,6 +123,48 @@
     <dialog id="adminDetailDialog" class="image-dialog detail-dialog">
       <button id="adminCloseDetailButton" class="dialog-close" type="button">關閉</button>
       <div id="adminDetailContent" class="owner-detail-content"></div>
+    </dialog>
+
+    <dialog id="adminAutoApproveDialog" class="image-dialog detail-dialog">
+      <button id="adminCloseAutoApproveDialogButton" class="dialog-close" type="button">關閉</button>
+      <div class="owner-detail-content">
+        <div class="section-header">
+          <h3 id="adminAutoApproveDialogTitle">自動核准設定</h3>
+          <span id="adminAutoApproveStateBadge" class="pill subtle-pill">未啟用</span>
+        </div>
+        <p id="adminAutoApproveDialogNote" class="detail-note">管理員可替商家設定自動核准，並立即執行一次。</p>
+        <div class="detail-edit-summary">
+          <label class="edit-field prominent-edit-field">
+            <span>間隔</span>
+            <div class="interval-input-row">
+              <input id="adminAutoApproveIntervalInput" class="text-input" type="number" min="1" step="1" value="300" />
+              <span class="field-note">秒</span>
+            </div>
+          </label>
+          <div id="adminBulkShopPicker" class="edit-field hidden">
+            <span>套用商家</span>
+            <div id="adminBulkShopList" class="admin-bulk-shop-list"></div>
+          </div>
+          <div class="edit-field">
+            <span>可自動核准狀態</span>
+            <div class="auto-approve-status-grid">
+              <label class="check-row"><input id="adminAutoApproveAllowVerified" type="checkbox" checked /> 綠色：單號及金額已核實</label>
+              <label class="check-row"><input id="adminAutoApproveAllowIdOnly" type="checkbox" /> 黃色：僅單號已核實</label>
+              <label class="check-row"><input id="adminAutoApproveAllowAiSkipped" type="checkbox" /> 紫色：AI 未辨識</label>
+              <label class="check-row"><input id="adminAutoApproveAllowNoMatch" type="checkbox" /> 紅色：單號不匹配</label>
+            </div>
+            <p class="detail-note" style="margin-top: 10px;">
+              為保障安全，目前自動核准只支援「綠色：單號及金額已核實」交易。其他選項暫時不會生效。
+            </p>
+          </div>
+        </div>
+        <div class="detail-dialog-actions" style="margin-top: 16px;">
+          <button id="adminDisableAutoApproveButton" class="secondary-button" type="button">停止自動核准</button>
+          <button id="adminSaveAutoApproveButton" class="secondary-button" type="button">儲存設定</button>
+          <button id="adminRunAutoApproveNowButton" class="secondary-button" type="button">立即執行</button>
+          <button id="adminConfirmAutoApproveButton" class="primary-button" type="button">確認啟動</button>
+        </div>
+      </div>
     </dialog>
 
     <div id="adminLoadingOverlay" class="owner-loading-overlay hidden" aria-hidden="true">

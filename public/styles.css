@@ -1063,6 +1063,18 @@ th {
   height: 18px;
 }
 
+.admin-bulk-shop-list {
+  margin-top: 10px;
+  display: grid;
+  gap: 10px;
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #f8fbff;
+}
+
 .owner-table {
   width: 100%;
   border-collapse: collapse;

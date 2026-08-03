@@ -148,6 +148,16 @@ export default async function handler(req, res) {
     return adminShopsHandler(req, res);
   }
 
+  if (pathname.endsWith("/admin/shop-settings")) {
+    const { default: adminShopSettingsHandler } = await import("./admin/shop-settings.js");
+    return adminShopSettingsHandler(req, res);
+  }
+
+  if (pathname.endsWith("/admin/bulk-shop-settings")) {
+    const { default: adminBulkShopSettingsHandler } = await import("./admin/bulk-shop-settings.js");
+    return adminBulkShopSettingsHandler(req, res);
+  }
+
   if (pathname.endsWith("/admin/approve")) {
     const { default: adminApproveHandler } = await import("./admin/approve.js");
     return adminApproveHandler(req, res);

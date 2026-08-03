@@ -865,6 +865,115 @@ th {
   overflow-x: auto;
 }
 
+#transactionList {
+  display: none;
+  margin-top: 12px;
+}
+
+.status-legend {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 6px;
+  color: var(--subtle);
+  font-size: 13px;
+}
+
+.status-legend .legend-title {
+  color: var(--ink);
+  font-weight: 900;
+}
+
+.status-legend .legend-note {
+  color: #b3261e;
+  font-weight: 800;
+}
+
+.owner-mobile-card {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 14px;
+  background: #fff;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
+}
+
+.owner-mobile-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.owner-mobile-time {
+  margin-top: 4px;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.owner-mobile-meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.owner-mobile-meta-card {
+  border: 1px solid #edf1f7;
+  border-radius: 14px;
+  padding: 10px;
+  background: #f8fbff;
+  min-width: 0;
+}
+
+.owner-mobile-meta-card strong {
+  display: block;
+  margin-top: 6px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.owner-mobile-thumb-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.owner-mobile-actions {
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+.owner-mobile-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  font-weight: 800;
+}
+
+.auto-approve-status-grid {
+  margin-top: 10px;
+  display: grid;
+  gap: 10px;
+}
+
+.check-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.check-row input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+}
+
 .owner-table {
   width: 100%;
   border-collapse: collapse;
@@ -1422,5 +1531,24 @@ body.has-bottom-bar .compact-page {
   th {
     border-bottom: 0;
     padding-bottom: 4px;
+  }
+
+  .table-wrapper {
+    display: none;
+  }
+
+  #transactionList {
+    display: grid;
+    gap: 12px;
+  }
+
+  .owner-mobile-meta {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 420px) {
+  .owner-mobile-meta {
+    grid-template-columns: 1fr;
   }
 }

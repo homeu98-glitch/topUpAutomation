@@ -80,12 +80,28 @@
                   <option value="20">20</option>
                   <option value="50">50</option>
                   <option value="100">100</option>
-                  <option value="all">All</option>
+                  <option value="all">全部</option>
+                </select>
+              </label>
+              <label class="page-size-picker">
+                <span>即時更新</span>
+                <select id="liveModeIntervalSelect" class="text-input">
+                  <option value="10">10 秒</option>
+                  <option value="20">20 秒</option>
+                  <option value="30">30 秒</option>
                 </select>
               </label>
               <button id="batchApproveButton" class="primary-button" type="button">批次核准</button>
               <button id="refreshDashboardButton" class="secondary-button" type="button">重新整理</button>
             </div>
+          </div>
+          <div class="status-legend" aria-label="狀態說明">
+            <span class="legend-title">狀態說明</span>
+            <span>綠色：單號及金額已核實（可核准）</span>
+            <span>黃色：僅單號已核實（需人工核對金額）</span>
+            <span>紅色：單號不匹配（需人工處理）</span>
+            <span>紫色：AI 未辨識／沒有內容（需人工填寫）</span>
+            <span class="legend-note">若明細沒有金額，請先填寫「可編輯金額」，否則不能核准。</span>
           </div>
           <div class="table-wrapper">
             <table class="owner-table">
@@ -104,7 +120,7 @@
               <tbody id="transactionTableBody"></tbody>
             </table>
           </div>
-          <div id="transactionList" class="hidden"></div>
+          <div id="transactionList"></div>
           <div class="pagination-bar">
             <button id="prevPageButton" class="secondary-button" type="button">上一頁</button>
             <span id="paginationInfo" class="field-note">第 1 頁</span>
@@ -139,9 +155,21 @@
             <span>間隔</span>
             <div class="interval-input-row">
               <input id="autoApproveIntervalInput" class="text-input" type="number" min="1" step="1" value="300" />
-              <span class="field-note">Second</span>
+              <span class="field-note">秒</span>
             </div>
           </label>
+          <div class="edit-field">
+            <span>可自動核准狀態</span>
+            <div class="auto-approve-status-grid">
+              <label class="check-row"><input id="autoApproveAllowVerified" type="checkbox" checked /> 綠色：單號及金額已核實</label>
+              <label class="check-row"><input id="autoApproveAllowIdOnly" type="checkbox" /> 黃色：僅單號已核實</label>
+              <label class="check-row"><input id="autoApproveAllowAiSkipped" type="checkbox" /> 紫色：AI 未辨識</label>
+              <label class="check-row"><input id="autoApproveAllowNoMatch" type="checkbox" /> 紅色：單號不匹配</label>
+            </div>
+            <p class="detail-note" style="margin-top: 10px;">
+              為保障安全，目前自動核准只支援「綠色：單號及金額已核實」交易。其他選項暫時不會生效。
+            </p>
+          </div>
         </div>
         <div class="detail-dialog-actions" style="margin-top: 16px;">
           <button id="disableAutoApproveButton" class="secondary-button" type="button">停止自動核准</button>
@@ -168,6 +196,14 @@
         </div>
         <div class="mobile-owner-menu-actions">
           <button id="mobileMenuLiveModeButton" class="secondary-button" type="button">即時模式：關</button>
+          <label class="page-size-picker">
+            <span>即時更新</span>
+            <select id="mobileLiveModeIntervalSelect" class="text-input">
+              <option value="10">10 秒</option>
+              <option value="20">20 秒</option>
+              <option value="30">30 秒</option>
+            </select>
+          </label>
           <button id="mobileMenuAutoApproveButton" class="secondary-button" type="button">設定自動核准</button>
           <button id="mobileMenuRefreshButton" class="secondary-button" type="button">重新整理</button>
           <button id="mobileMenuBatchApproveButton" class="primary-button" type="button">批次核准</button>

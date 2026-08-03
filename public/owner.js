@@ -24,10 +24,14 @@ const state = {
   settingsLoadedAt: 0,
   transactionCache: new Map(),
   liveModeEnabled: false,
+  liveModeIntervalSeconds: 10,
+  autoApproveAllowedStatuses: ["verified_amount_and_id"],
 };
-const OWNER_POLL_INTERVAL_MS = 8000;
+const OWNER_POLL_INTERVAL_DEFAULT_SECONDS = 10;
 const OWNER_META_CACHE_MS = 30000;
 const OWNER_LIVE_MODE_STORAGE_KEY = "ownerLiveModeEnabled";
+const OWNER_LIVE_MODE_INTERVAL_STORAGE_KEY = "ownerLiveModeIntervalSeconds";
+const OWNER_AUTO_APPROVE_ALLOWED_STORAGE_KEY = "ownerAutoApproveAllowedStatuses";
 let ownerPollTimer = null;
 let statusHideTimer = null;
 let autoApproveCountdownTimer = null;
@@ -54,6 +58,7 @@ const customerSearchInput = document.getElementById("customerSearchInput");
 const customerSearchButton = document.getElementById("customerSearchButton");
 const customerSearchClearButton = document.getElementById("customerSearchClearButton");
 const pageSizeSelect = document.getElementById("pageSizeSelect");
+const liveModeIntervalSelect = document.getElementById("liveModeIntervalSelect");
 const batchApproveButton = document.getElementById("batchApproveButton");
 const refreshDashboardButton = document.getElementById("refreshDashboardButton");
 const pendingTabButton = document.getElementById("pendingTabButton");
@@ -82,6 +87,10 @@ const closeMobileOwnerMenuButton = document.getElementById("closeMobileOwnerMenu
 const closeMobileSearchDialogButton = document.getElementById("closeMobileSearchDialogButton");
 const autoApproveStateBadge = document.getElementById("autoApproveStateBadge");
 const autoApproveIntervalInput = document.getElementById("autoApproveIntervalInput");
+const autoApproveAllowVerified = document.getElementById("autoApproveAllowVerified");
+const autoApproveAllowIdOnly = document.getElementById("autoApproveAllowIdOnly");
+const autoApproveAllowAiSkipped = document.getElementById("autoApproveAllowAiSkipped");
+const autoApproveAllowNoMatch = document.getElementById("autoApproveAllowNoMatch");
 const disableAutoApproveButton = document.getElementById("disableAutoApproveButton");
 const confirmAutoApproveButton = document.getElementById("confirmAutoApproveButton");
 const ownerLoadingOverlay = document.getElementById("ownerLoadingOverlay");
@@ -90,6 +99,7 @@ const mobileOwnerShopName = document.getElementById("mobileOwnerShopName");
 const mobileOwnerLogin = document.getElementById("mobileOwnerLogin");
 const mobileMenuAutoApproveButton = document.getElementById("mobileMenuAutoApproveButton");
 const mobileMenuLiveModeButton = document.getElementById("mobileMenuLiveModeButton");
+const mobileLiveModeIntervalSelect = document.getElementById("mobileLiveModeIntervalSelect");
 const mobileMenuRefreshButton = document.getElementById("mobileMenuRefreshButton");
 const mobileMenuBatchApproveButton = document.getElementById("mobileMenuBatchApproveButton");
 const mobileMenuReturnButton = document.getElementById("mobileMenuReturnButton");
@@ -421,6 +431,8 @@ function renderOwnerSession() {
   liveModeButton.classList.toggle("active-live-toggle", state.liveModeEnabled);
   mobileMenuLiveModeButton.textContent = `即時模式：${state.liveModeEnabled ? "開" : "關"}`;
   mobileMenuLiveModeButton.classList.toggle("active-live-toggle", state.liveModeEnabled);
+  if (liveModeIntervalSelect) liveModeIntervalSelect.value = String(state.liveModeIntervalSeconds || OWNER_POLL_INTERVAL_DEFAULT_SECONDS);
+  if (mobileLiveModeIntervalSelect) mobileLiveModeIntervalSelect.value = String(state.liveModeIntervalSeconds || OWNER_POLL_INTERVAL_DEFAULT_SECONDS);
   pendingTabBadge.textContent = String(state.pendingCount || 0);
   pendingTabBadge.classList.toggle("hidden", !state.pendingCount);
   mobilePendingTabBadge.textContent = String(state.pendingCount || 0);
@@ -437,16 +449,41 @@ function renderOwnerSession() {
 function loadLiveModePreference() {
   try {
     state.liveModeEnabled = window.localStorage.getItem(OWNER_LIVE_MODE_STORAGE_KEY) === "1";
+    const rawInterval = Number(window.localStorage.getItem(OWNER_LIVE_MODE_INTERVAL_STORAGE_KEY));
+    state.liveModeIntervalSeconds = [10, 20, 30].includes(rawInterval) ? rawInterval : OWNER_POLL_INTERVAL_DEFAULT_SECONDS;
   } catch {
     state.liveModeEnabled = false;
+    state.liveModeIntervalSeconds = OWNER_POLL_INTERVAL_DEFAULT_SECONDS;
   }
 }
 
 function persistLiveModePreference() {
   try {
     window.localStorage.setItem(OWNER_LIVE_MODE_STORAGE_KEY, state.liveModeEnabled ? "1" : "0");
+    window.localStorage.setItem(OWNER_LIVE_MODE_INTERVAL_STORAGE_KEY, String(state.liveModeIntervalSeconds || OWNER_POLL_INTERVAL_DEFAULT_SECONDS));
   } catch {
     // ignore storage failures
+  }
+}
+
+function loadAutoApproveAllowedPreference() {
+  try {
+    const raw = window.localStorage.getItem(OWNER_AUTO_APPROVE_ALLOWED_STORAGE_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      state.autoApproveAllowedStatuses = parsed.map(String);
+    }
+  } catch {
+    // ignore invalid preference
+  }
+}
+
+function persistAutoApproveAllowedPreference() {
+  try {
+    window.localStorage.setItem(OWNER_AUTO_APPROVE_ALLOWED_STORAGE_KEY, JSON.stringify(state.autoApproveAllowedStatuses || []));
+  } catch {
+    // ignore
   }
 }
 
@@ -456,7 +493,7 @@ function applyLiveModePolling() {
   ownerPollTimer = setInterval(async () => {
     if (document.hidden || state.isLoadingOwnerData) return;
     await loadOwnerData();
-  }, OWNER_POLL_INTERVAL_MS);
+  }, Math.max(5, Number(state.liveModeIntervalSeconds) || OWNER_POLL_INTERVAL_DEFAULT_SECONDS) * 1000);
 }
 
 function toggleLiveMode(enabled) {
@@ -494,6 +531,11 @@ function syncAutoApproveDialog() {
   autoApproveStateBadge.textContent = state.autoApproveEnabled ? "已啟用" : "未啟用";
   autoApproveIntervalInput.value = String(state.autoApproveIntervalSeconds || 300);
   disableAutoApproveButton.classList.toggle("hidden", !state.autoApproveEnabled);
+  const allowed = new Set(Array.isArray(state.autoApproveAllowedStatuses) ? state.autoApproveAllowedStatuses : []);
+  if (autoApproveAllowVerified) autoApproveAllowVerified.checked = allowed.has("verified_amount_and_id");
+  if (autoApproveAllowIdOnly) autoApproveAllowIdOnly.checked = allowed.has("verified_id_only");
+  if (autoApproveAllowAiSkipped) autoApproveAllowAiSkipped.checked = allowed.has("ai_skipped");
+  if (autoApproveAllowNoMatch) autoApproveAllowNoMatch.checked = allowed.has("no_match");
 }
 
 async function runBatchApprove() {
@@ -1054,6 +1096,7 @@ async function logoutOwner() {
 
 async function loadSession() {
   loadLiveModePreference();
+  loadAutoApproveAllowedPreference();
   const payload = await apiFetch("/api/auth/me");
   state.user = payload.user;
   if (state.user?.role === "customer") {
@@ -1204,6 +1247,24 @@ mobileMenuLiveModeButton.addEventListener("click", () => {
   toggleLiveMode(!state.liveModeEnabled);
 });
 
+function applyLiveModeInterval(seconds) {
+  const normalized = [10, 20, 30].includes(Number(seconds)) ? Number(seconds) : OWNER_POLL_INTERVAL_DEFAULT_SECONDS;
+  state.liveModeIntervalSeconds = normalized;
+  persistLiveModePreference();
+  renderOwnerSession();
+  if (state.liveModeEnabled) {
+    applyLiveModePolling();
+  }
+}
+
+liveModeIntervalSelect?.addEventListener("change", () => {
+  applyLiveModeInterval(liveModeIntervalSelect.value);
+});
+
+mobileLiveModeIntervalSelect?.addEventListener("change", () => {
+  applyLiveModeInterval(mobileLiveModeIntervalSelect.value);
+});
+
 async function updateAutoApproveSettings(autoApproveEnabled) {
   const intervalSeconds = Math.max(1, Number(autoApproveIntervalInput.value) || state.autoApproveIntervalSeconds || 300);
   try {
@@ -1259,6 +1320,17 @@ mobileMenuReturnButton?.addEventListener("click", () => {
 });
 
 confirmAutoApproveButton.addEventListener("click", async () => {
+  const selected = [];
+  if (autoApproveAllowVerified?.checked) selected.push("verified_amount_and_id");
+  if (autoApproveAllowIdOnly?.checked) selected.push("verified_id_only");
+  if (autoApproveAllowAiSkipped?.checked) selected.push("ai_skipped");
+  if (autoApproveAllowNoMatch?.checked) selected.push("no_match");
+  state.autoApproveAllowedStatuses = selected;
+  persistAutoApproveAllowedPreference();
+  if (!autoApproveAllowVerified?.checked) {
+    showError("目前自動核准只支援綠色（單號及金額已核實）交易，請至少勾選綠色選項。");
+    return;
+  }
   await updateAutoApproveSettings(true);
 });
 

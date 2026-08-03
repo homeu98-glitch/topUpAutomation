@@ -401,10 +401,12 @@ td {
 
 .search-box {
   flex-wrap: wrap;
+  min-width: 0;
 }
 
 .search-box .text-input {
   min-width: 180px;
+  flex: 1 1 240px;
 }
 
 .login-row {
@@ -439,6 +441,37 @@ td {
   align-items: center;
   gap: 8px;
   color: var(--subtle);
+}
+
+.admin-toolbar-layout {
+  width: 100%;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px 20px;
+}
+
+.admin-toolbar-filters,
+.admin-toolbar-buttons {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.admin-toolbar-filters {
+  flex: 1 1 640px;
+  min-width: 0;
+}
+
+.admin-toolbar-buttons {
+  flex: 0 0 auto;
+  justify-content: flex-end;
+}
+
+.admin-toolbar-buttons .secondary-button,
+.admin-toolbar-buttons .primary-button {
+  min-width: 118px;
+  justify-content: center;
 }
 
 .interval-input-row .text-input {
@@ -1569,6 +1602,15 @@ body.has-bottom-bar .compact-page {
 
   .table-wrapper {
     display: none;
+  }
+
+  .admin-toolbar-filters,
+  .admin-toolbar-buttons {
+    width: 100%;
+  }
+
+  .admin-toolbar-buttons {
+    justify-content: flex-start;
   }
 
   .admin-dashboard-grid {

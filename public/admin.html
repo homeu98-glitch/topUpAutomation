@@ -46,37 +46,37 @@
         <section id="adminDashboardCards" class="dashboard-grid admin-dashboard-grid"></section>
 
         <section class="card">
-          <div class="list-toolbar">
-            <div class="tab-bar">
-              <button id="adminPendingTabButton" class="tab-button active" type="button">待審核</button>
-              <button id="adminHistoryTabButton" class="tab-button" type="button">歷史紀錄</button>
+          <div class="admin-toolbar-stack">
+            <div class="admin-toolbar-row admin-toolbar-row-top">
+              <div class="tab-bar admin-tab-bar">
+                <button id="adminPendingTabButton" class="tab-button active" type="button">待審核</button>
+                <button id="adminHistoryTabButton" class="tab-button" type="button">歷史紀錄</button>
+              </div>
+              <label class="page-size-picker admin-page-size-picker">
+                <span>每頁</span>
+                <select id="adminPageSizeSelect" class="text-input">
+                  <option value="20">20</option>
+                  <option value="50" selected>50</option>
+                </select>
+              </label>
             </div>
-            <div class="owner-toolbar-actions admin-toolbar-layout">
-              <div class="admin-toolbar-filters">
-                <label class="page-size-picker">
-                  <span>商家</span>
-                  <select id="adminShopSelect" class="text-input">
-                    <option value="">全部商家</option>
-                  </select>
-                </label>
-                <div class="search-box">
-                  <input id="adminCustomerSearchInput" class="text-input" type="text" inputmode="numeric" placeholder="搜尋客戶號碼" />
-                  <button id="adminCustomerSearchButton" class="secondary-button" type="button">搜尋</button>
-                  <button id="adminCustomerSearchClearButton" class="secondary-button" type="button">清除</button>
-                </div>
-                <label class="page-size-picker">
-                  <span>每頁</span>
-                  <select id="adminPageSizeSelect" class="text-input">
-                    <option value="20">20</option>
-                    <option value="50" selected>50</option>
-                  </select>
-                </label>
+            <div class="admin-toolbar-row admin-toolbar-row-middle">
+              <label class="page-size-picker admin-shop-picker">
+                <span>商家</span>
+                <select id="adminShopSelect" class="text-input">
+                  <option value="">全部商家</option>
+                </select>
+              </label>
+              <div class="search-box admin-search-box">
+                <input id="adminCustomerSearchInput" class="text-input" type="text" inputmode="numeric" placeholder="搜尋客戶號碼" />
+                <button id="adminCustomerSearchButton" class="secondary-button" type="button">搜尋</button>
+                <button id="adminCustomerSearchClearButton" class="secondary-button" type="button">清除</button>
               </div>
-              <div class="admin-toolbar-buttons">
-                <button id="adminBatchApproveButton" class="primary-button" type="button">批次核准</button>
-                <button id="adminAutoApproveSweepButton" class="secondary-button" type="button">執行自動核准</button>
-                <button id="adminRefreshButton" class="secondary-button" type="button">重新整理</button>
-              </div>
+            </div>
+            <div class="admin-toolbar-row admin-toolbar-row-bottom">
+              <button id="adminBatchApproveButton" class="primary-button" type="button">批次核准</button>
+              <button id="adminAutoApproveSweepButton" class="secondary-button" type="button">執行自動核准</button>
+              <button id="adminRefreshButton" class="secondary-button" type="button">重新整理</button>
             </div>
           </div>
           <div class="status-legend" aria-label="狀態說明">

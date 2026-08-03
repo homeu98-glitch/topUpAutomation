@@ -443,33 +443,55 @@ td {
   color: var(--subtle);
 }
 
-.admin-toolbar-layout {
-  width: 100%;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 16px 20px;
+.admin-toolbar-stack {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 18px;
 }
 
-.admin-toolbar-filters,
-.admin-toolbar-buttons {
+.admin-toolbar-row {
   display: flex;
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
 }
 
-.admin-toolbar-filters {
-  flex: 1 1 640px;
-  min-width: 0;
+.admin-toolbar-row-top {
+  justify-content: space-between;
 }
 
-.admin-toolbar-buttons {
+.admin-toolbar-row-middle,
+.admin-toolbar-row-bottom {
+  justify-content: flex-start;
+}
+
+.admin-tab-bar {
+  flex-wrap: nowrap;
+}
+
+.admin-tab-bar .tab-button {
+  white-space: nowrap;
+}
+
+.admin-page-size-picker {
+  margin-left: auto;
   flex: 0 0 auto;
-  justify-content: flex-end;
 }
 
-.admin-toolbar-buttons .secondary-button,
-.admin-toolbar-buttons .primary-button {
+.admin-shop-picker {
+  flex: 0 0 auto;
+}
+
+.admin-shop-picker .text-input {
+  min-width: 160px;
+}
+
+.admin-search-box {
+  flex: 1 1 420px;
+}
+
+.admin-toolbar-row-bottom .secondary-button,
+.admin-toolbar-row-bottom .primary-button {
   min-width: 118px;
   justify-content: center;
 }
@@ -1604,13 +1626,25 @@ body.has-bottom-bar .compact-page {
     display: none;
   }
 
-  .admin-toolbar-filters,
-  .admin-toolbar-buttons {
+  .admin-toolbar-row,
+  .admin-toolbar-row-top,
+  .admin-toolbar-row-middle,
+  .admin-toolbar-row-bottom {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .admin-page-size-picker {
+    margin-left: 0;
+  }
+
+  .admin-search-box,
+  .admin-shop-picker {
     width: 100%;
   }
 
-  .admin-toolbar-buttons {
-    justify-content: flex-start;
+  .admin-tab-bar {
+    flex-wrap: wrap;
   }
 
   .admin-dashboard-grid {

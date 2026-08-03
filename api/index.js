@@ -143,6 +143,41 @@ export default async function handler(req, res) {
     return adminTransactionsHandler(req, res);
   }
 
+  if (pathname.endsWith("/admin/shops")) {
+    const { default: adminShopsHandler } = await import("./admin/shops.js");
+    return adminShopsHandler(req, res);
+  }
+
+  if (pathname.endsWith("/admin/approve")) {
+    const { default: adminApproveHandler } = await import("./admin/approve.js");
+    return adminApproveHandler(req, res);
+  }
+
+  if (pathname.endsWith("/admin/batch-approve")) {
+    const { default: adminBatchApproveHandler } = await import("./admin/batch-approve.js");
+    return adminBatchApproveHandler(req, res);
+  }
+
+  if (pathname.endsWith("/admin/reject")) {
+    const { default: adminRejectHandler } = await import("./admin/reject.js");
+    return adminRejectHandler(req, res);
+  }
+
+  if (pathname.endsWith("/admin/revoke")) {
+    const { default: adminRevokeHandler } = await import("./admin/revoke.js");
+    return adminRevokeHandler(req, res);
+  }
+
+  if (pathname.endsWith("/admin/update-transaction")) {
+    const { default: adminUpdateTransactionHandler } = await import("./admin/update-transaction.js");
+    return adminUpdateTransactionHandler(req, res);
+  }
+
+  if (pathname.endsWith("/admin/auto-approve-sweep")) {
+    const { default: adminAutoApproveSweepHandler } = await import("./admin/auto-approve-sweep.js");
+    return adminAutoApproveSweepHandler(req, res);
+  }
+
   if (pathname.endsWith("/cron/auto-approve")) {
     const { default: cronHandler } = await import("./cron/auto-approve.js");
     return cronHandler(req, res);

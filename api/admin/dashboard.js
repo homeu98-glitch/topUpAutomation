@@ -20,9 +20,9 @@ export default async function handler(req, res) {
     }
     refreshSession(res, session);
 
-    const { from, to } = req.query || {};
+    const { from, to, shopId } = req.query || {};
     const stats = await getDashboardStats({
-      shopId: "",
+      shopId: String(shopId || ""),
       from: String(from || ""),
       to: String(to || ""),
     });

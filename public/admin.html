@@ -52,6 +52,12 @@
               <button id="adminHistoryTabButton" class="tab-button" type="button">歷史紀錄</button>
             </div>
             <div class="owner-toolbar-actions">
+              <label class="page-size-picker">
+                <span>商家</span>
+                <select id="adminShopSelect" class="text-input">
+                  <option value="">全部商家</option>
+                </select>
+              </label>
               <div class="search-box">
                 <input id="adminCustomerSearchInput" class="text-input" type="text" inputmode="numeric" placeholder="搜尋客戶號碼" />
                 <button id="adminCustomerSearchButton" class="secondary-button" type="button">搜尋</button>
@@ -61,11 +67,11 @@
                 <span>每頁</span>
                 <select id="adminPageSizeSelect" class="text-input">
                   <option value="20">20</option>
-                  <option value="50">50</option>
-                  <option value="100">100</option>
-                  <option value="all">全部</option>
+                  <option value="50" selected>50</option>
                 </select>
               </label>
+              <button id="adminBatchApproveButton" class="primary-button" type="button">批次核准</button>
+              <button id="adminAutoApproveSweepButton" class="secondary-button" type="button">執行自動核准</button>
               <button id="adminRefreshButton" class="secondary-button" type="button">重新整理</button>
             </div>
           </div>
@@ -81,6 +87,7 @@
             <table class="owner-table">
               <thead>
                 <tr>
+                  <th><input id="adminSelectAllCheckbox" type="checkbox" /></th>
                   <th>提交時間</th>
                   <th>店舖</th>
                   <th>會員編號</th>
@@ -88,8 +95,8 @@
                   <th>圖片數</th>
                   <th>總額</th>
                   <th>狀態</th>
-                  <th>店主操作</th>
-                  <th>查看</th>
+                  <th>操作人</th>
+                  <th>操作</th>
                 </tr>
               </thead>
               <tbody id="adminTransactionTableBody"></tbody>

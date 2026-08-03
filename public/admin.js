@@ -8,11 +8,14 @@ const state = {
   authBooting: true,
   mode: "pending",
   page: 1,
-  pageSize: "20",
+  pageSize: "50",
   total: 0,
   pageCount: 1,
   searchTerm: "",
   transactions: [],
+  shops: [],
+  selectedShopId: "",
+  selectedIds: new Set(),
 };
 
 const adminErrorCard = document.getElementById("adminErrorCard");
@@ -28,12 +31,16 @@ const adminLogoutButton = document.getElementById("adminLogoutButton");
 const adminDashboardCards = document.getElementById("adminDashboardCards");
 const adminPendingTabButton = document.getElementById("adminPendingTabButton");
 const adminHistoryTabButton = document.getElementById("adminHistoryTabButton");
+const adminShopSelect = document.getElementById("adminShopSelect");
 const adminCustomerSearchInput = document.getElementById("adminCustomerSearchInput");
 const adminCustomerSearchButton = document.getElementById("adminCustomerSearchButton");
 const adminCustomerSearchClearButton = document.getElementById("adminCustomerSearchClearButton");
 const adminPageSizeSelect = document.getElementById("adminPageSizeSelect");
+const adminBatchApproveButton = document.getElementById("adminBatchApproveButton");
+const adminAutoApproveSweepButton = document.getElementById("adminAutoApproveSweepButton");
 const adminRefreshButton = document.getElementById("adminRefreshButton");
 const adminTransactionTableBody = document.getElementById("adminTransactionTableBody");
+const adminSelectAllCheckbox = document.getElementById("adminSelectAllCheckbox");
 const adminPrevPageButton = document.getElementById("adminPrevPageButton");
 const adminNextPageButton = document.getElementById("adminNextPageButton");
 const adminPaginationInfo = document.getElementById("adminPaginationInfo");
@@ -122,11 +129,18 @@ function renderSession() {
   adminHeaderSession.classList.toggle("hidden", !isAdmin);
   adminLoginCard.classList.toggle("hidden", isAdmin || state.authBooting);
   adminApp.classList.toggle("hidden", !isAdmin);
-  if (isAdmin) {
-    adminNameBadge.textContent = `${state.user.fullName || "Admin"} (${state.user.adminLogin || "-"})`;
-  } else {
-    adminNameBadge.textContent = "未登入";
-  }
+  adminNameBadge.textContent = isAdmin ? `${state.user.fullName || "管理員"} (${state.user.adminLogin || "-"})` : "未登入";
+}
+
+function renderShops() {
+  adminShopSelect.innerHTML = [`<option value="">全部商家</option>`]
+    .concat(
+      state.shops.map(
+        (shop) =>
+          `<option value="${shop.id}" ${String(state.selectedShopId) === String(shop.id) ? "selected" : ""}>${shop.name}</option>`
+      )
+    )
+    .join("");
 }
 
 function renderDashboard(stats) {
@@ -139,6 +153,49 @@ function renderDashboard(stats) {
     <article class="card stat-card"><div class="summary-label">已核准總額</div><div class="summary-value">${formatCurrency(stats.approvedAmount)}</div></article>
     <article class="card stat-card"><div class="summary-label">已拒絕筆數</div><div class="summary-value">${stats.rejectedCount || 0}</div></article>
   `;
+}
+
+function showImageDialog(src, alt, verificationStatus = "") {
+  adminDialogImage.classList.remove("ai-skipped-preview", "verified-preview", "partial-verified-preview", "failed-preview");
+  const verificationMeta = getVerificationMeta(verificationStatus);
+  if (verificationMeta?.thumbClass === "verified-thumb") adminDialogImage.classList.add("verified-preview");
+  if (verificationMeta?.thumbClass === "partial-verified-thumb") adminDialogImage.classList.add("partial-verified-preview");
+  if (verificationMeta?.thumbClass === "failed-thumb") adminDialogImage.classList.add("failed-preview");
+  if (verificationMeta?.thumbClass === "ai-skipped-thumb") adminDialogImage.classList.add("ai-skipped-preview");
+  adminDialogImage.src = src;
+  adminDialogImage.alt = alt;
+  adminImageDialog.showModal();
+}
+
+function renderPagination() {
+  adminPaginationInfo.textContent = `第 ${state.page} / ${state.pageCount} 頁，共 ${state.total} 筆`;
+  adminPrevPageButton.disabled = state.page <= 1;
+  adminNextPageButton.disabled = state.page >= state.pageCount;
+}
+
+function syncBatchApproveState() {
+  adminBatchApproveButton.disabled = !state.selectedIds.size || state.mode !== "pending";
+  adminSelectAllCheckbox.checked =
+    state.transactions.length > 0 &&
+    state.transactions.filter((row) => row.status === "pending").every((row) => state.selectedIds.has(row.id));
+}
+
+async function saveDetailChanges(transactionId, approveAfterSave) {
+  const itemAmounts = [...adminDetailContent.querySelectorAll(".admin-detail-amount-input")].map((input) => input.value);
+  try {
+    await apiFetch("/api/admin/update-transaction", {
+      method: "POST",
+      body: JSON.stringify({ transactionId, itemAmounts }),
+    });
+    if (approveAfterSave) {
+      await approveTransaction(transactionId);
+      adminDetailDialog.close();
+      return;
+    }
+    await loadAdminData({ showOverlay: true, loadingText: "正在刷新資料..." });
+  } catch (error) {
+    showError(error instanceof Error ? error.message : "更新交易失敗");
+  }
 }
 
 function renderDetailDialog(transaction) {
@@ -156,7 +213,7 @@ function renderDetailDialog(transaction) {
       <span class="pill subtle-pill">店舖：${shopName}</span>
       <span class="pill subtle-pill">店舖編號：${shopCode}</span>
       <span class="pill subtle-pill">提交時間：${formatDateTime(transaction.submitted_at)}</span>
-      <span class="pill subtle-pill">店主操作：${transaction.approved_by || "-"}</span>
+      <span class="pill subtle-pill">目前操作人：${transaction.approved_by || "-"}</span>
     </div>
     ${hasMissingAmount ? `<div class="missing-amount-banner">此交易內容沒有金額，請先填寫「可編輯金額」後才能核准。</div>` : ""}
     <div class="detail-list owner-detail-list">
@@ -184,9 +241,12 @@ function renderDetailDialog(transaction) {
                 <span>匹配欄位：${item?.verificationMatchedSource || "-"}</span>
                 <span>mPay 黃金金額：${item?.verificationBackofficeAmount ? formatCurrency(item.verificationBackofficeAmount) : "-"}</span>
                 <span>金額是否一致：${
-                  item?.verificationAmountMatched == null ? "-" : item.verificationAmountMatched ? "是" : "否（已按 mPay 後台自動校正）"
+                  item?.verificationAmountMatched == null ? "-" : item?.verificationAmountMatched ? "是" : "否（已按 mPay 後台自動校正）"
                 }</span>
-                <span>金額：${item?.manualAmount || item?.extracted?.amount || "-"}</span>
+                <label class="edit-field">
+                  <span>可編輯金額</span>
+                  <input class="text-input admin-detail-amount-input" data-index="${index}" type="number" step="0.01" min="0" value="${item?.manualAmount || item?.extracted?.amount || ""}" />
+                </label>
                 <span>時間：${item?.extracted?.transactionTime || "-"}</span>
                 <span>狀態：${item?.extracted?.orderStatus || "-"}</span>
                 <span>支付方式：${item?.extracted?.paymentMethod || "-"}</span>
@@ -196,35 +256,100 @@ function renderDetailDialog(transaction) {
         )
         .join("")}
     </div>
+    <div class="detail-dialog-actions" style="margin-top: 16px;">
+      <button id="adminSaveDetailButton" class="secondary-button" type="button">儲存修改</button>
+      ${transaction.status === "pending" ? `<button id="adminSaveAndApproveButton" class="primary-button" type="button">儲存並核准</button>` : ""}
+      ${transaction.status === "pending" ? `<button id="adminRejectDetailButton" class="secondary-button" type="button">拒絕</button>` : ""}
+      ${transaction.status === "rejected" ? `<button id="adminRevokeDetailButton" class="secondary-button" type="button">撤回</button>` : ""}
+    </div>
   `;
 
   adminDetailDialog.showModal();
   adminDetailContent.querySelectorAll(".admin-detail-thumb").forEach((button) => {
     button.addEventListener("click", () => showImageDialog(button.dataset.src, button.dataset.alt || "交易圖片", button.dataset.verificationStatus || ""));
   });
+  adminDetailContent.querySelector("#adminSaveDetailButton")?.addEventListener("click", () => saveDetailChanges(transaction.id, false));
+  adminDetailContent.querySelector("#adminSaveAndApproveButton")?.addEventListener("click", () => saveDetailChanges(transaction.id, true));
+  adminDetailContent.querySelector("#adminRejectDetailButton")?.addEventListener("click", async () => {
+    await rejectTransaction(transaction.id);
+    adminDetailDialog.close();
+  });
+  adminDetailContent.querySelector("#adminRevokeDetailButton")?.addEventListener("click", async () => {
+    await revokeTransaction(transaction.id);
+    adminDetailDialog.close();
+  });
 }
 
-function renderPagination() {
-  adminPaginationInfo.textContent = `第 ${state.page} / ${state.pageCount} 頁，共 ${state.total} 筆`;
-  adminPrevPageButton.disabled = state.page <= 1;
-  adminNextPageButton.disabled = state.page >= state.pageCount || state.pageSize === "all";
+async function approveTransaction(transactionId) {
+  try {
+    await apiFetch("/api/admin/approve", {
+      method: "POST",
+      body: JSON.stringify({ transactionId }),
+    });
+    await loadAdminData({ showOverlay: true, loadingText: "正在核准並刷新資料..." });
+  } catch (error) {
+    showError(error instanceof Error ? error.message : "核准失敗");
+  }
 }
 
-function showImageDialog(src, alt, verificationStatus = "") {
-  adminDialogImage.classList.remove("ai-skipped-preview", "verified-preview", "partial-verified-preview", "failed-preview");
-  const verificationMeta = getVerificationMeta(verificationStatus);
-  if (verificationMeta?.thumbClass === "verified-thumb") adminDialogImage.classList.add("verified-preview");
-  if (verificationMeta?.thumbClass === "partial-verified-thumb") adminDialogImage.classList.add("partial-verified-preview");
-  if (verificationMeta?.thumbClass === "failed-thumb") adminDialogImage.classList.add("failed-preview");
-  if (verificationMeta?.thumbClass === "ai-skipped-thumb") adminDialogImage.classList.add("ai-skipped-preview");
-  adminDialogImage.src = src;
-  adminDialogImage.alt = alt;
-  adminImageDialog.showModal();
+async function rejectTransaction(transactionId) {
+  try {
+    await apiFetch("/api/admin/reject", {
+      method: "POST",
+      body: JSON.stringify({ transactionId }),
+    });
+    await loadAdminData({ showOverlay: true, loadingText: "正在拒絕並刷新資料..." });
+  } catch (error) {
+    showError(error instanceof Error ? error.message : "拒絕失敗");
+  }
+}
+
+async function revokeTransaction(transactionId) {
+  try {
+    await apiFetch("/api/admin/revoke", {
+      method: "POST",
+      body: JSON.stringify({ transactionId }),
+    });
+    await loadAdminData({ showOverlay: true, loadingText: "正在撤回並刷新資料..." });
+  } catch (error) {
+    showError(error instanceof Error ? error.message : "撤回失敗");
+  }
+}
+
+async function runBatchApprove() {
+  if (!state.selectedIds.size) return;
+  try {
+    await apiFetch("/api/admin/batch-approve", {
+      method: "POST",
+      body: JSON.stringify({ transactionIds: [...state.selectedIds] }),
+    });
+    state.selectedIds.clear();
+    await loadAdminData({ showOverlay: true, loadingText: "正在批次核准並刷新資料..." });
+  } catch (error) {
+    showError(error instanceof Error ? error.message : "批次核准失敗");
+  }
+}
+
+async function runAutoApproveSweep() {
+  try {
+    const payload = await apiFetch("/api/admin/auto-approve-sweep", {
+      method: "POST",
+      body: JSON.stringify({ shopId: state.selectedShopId || "" }),
+    });
+    state.selectedIds.clear();
+    await loadAdminData({ showOverlay: true, loadingText: "正在執行自動核准並刷新資料..." });
+    if ((payload.approvedCount || 0) === 0) {
+      showError("已執行自動核准，但目前沒有符合規則的交易。");
+    }
+  } catch (error) {
+    showError(error instanceof Error ? error.message : "執行自動核准失敗");
+  }
 }
 
 function renderTransactions(rows) {
   if (!rows.length) {
-    adminTransactionTableBody.innerHTML = `<tr><td colspan="9"><div class="empty-state">目前沒有資料。</div></td></tr>`;
+    adminTransactionTableBody.innerHTML = `<tr><td colspan="10"><div class="empty-state">目前沒有資料。</div></td></tr>`;
+    syncBatchApproveState();
     renderPagination();
     return;
   }
@@ -239,6 +364,7 @@ function renderTransactions(rows) {
       const verificationMeta = getVerificationMeta(transaction.verificationStatus);
       return `
         <tr>
+          <td>${transaction.status === "pending" ? `<input class="admin-row-checkbox" data-id="${transaction.id}" type="checkbox" ${state.selectedIds.has(transaction.id) ? "checked" : ""} />` : ""}</td>
           <td>${formatDateTime(transaction.submitted_at)}</td>
           <td>${shopName}</td>
           <td>${transaction.customer_code}</td>
@@ -265,7 +391,14 @@ function renderTransactions(rows) {
             </div>
           </td>
           <td>${transaction.approved_by || "-"}</td>
-          <td><button class="secondary-button admin-detail-button" data-id="${transaction.id}" type="button">明細</button></td>
+          <td>
+            <div class="table-actions">
+              <button class="secondary-button admin-detail-button" data-id="${transaction.id}" type="button">明細</button>
+              ${transaction.status === "pending" ? `<button class="primary-button admin-approve-button" data-id="${transaction.id}" type="button">核准</button>` : ""}
+              ${transaction.status === "pending" ? `<button class="secondary-button admin-reject-button" data-id="${transaction.id}" type="button">拒絕</button>` : ""}
+              ${transaction.status === "rejected" ? `<button class="secondary-button admin-revoke-button" data-id="${transaction.id}" type="button">撤回</button>` : ""}
+            </div>
+          </td>
         </tr>
       `;
     })
@@ -280,12 +413,35 @@ function renderTransactions(rows) {
       if (transaction) renderDetailDialog(transaction);
     });
   });
-
+  adminTransactionTableBody.querySelectorAll(".admin-row-checkbox").forEach((checkbox) => {
+    checkbox.addEventListener("change", () => {
+      if (checkbox.checked) state.selectedIds.add(checkbox.dataset.id);
+      else state.selectedIds.delete(checkbox.dataset.id);
+      syncBatchApproveState();
+    });
+  });
+  adminTransactionTableBody.querySelectorAll(".admin-approve-button").forEach((button) => {
+    button.addEventListener("click", async () => approveTransaction(button.dataset.id));
+  });
+  adminTransactionTableBody.querySelectorAll(".admin-reject-button").forEach((button) => {
+    button.addEventListener("click", async () => rejectTransaction(button.dataset.id));
+  });
+  adminTransactionTableBody.querySelectorAll(".admin-revoke-button").forEach((button) => {
+    button.addEventListener("click", async () => revokeTransaction(button.dataset.id));
+  });
+  syncBatchApproveState();
   renderPagination();
+}
+
+async function loadShops() {
+  const payload = await apiFetch("/api/admin/shops");
+  state.shops = payload.shops || [];
+  renderShops();
 }
 
 async function loadAdminData({ showOverlay = false, loadingText = "正在讀取資料..." } = {}) {
   if (state.user?.role !== "admin") return;
+  resetError();
   if (showOverlay) setLoading(true, loadingText);
   try {
     const params = new URLSearchParams({
@@ -293,13 +449,13 @@ async function loadAdminData({ showOverlay = false, loadingText = "正在讀取�
       page: String(state.page),
       pageSize: String(state.pageSize),
       customerCode: state.searchTerm,
+      shopId: state.selectedShopId || "",
     });
-
+    const shopParam = encodeURIComponent(state.selectedShopId || "");
     const [dashboardPayload, transactionsPayload] = await Promise.all([
-      apiFetch("/api/admin/dashboard"),
+      apiFetch(`/api/admin/dashboard?shopId=${shopParam}`),
       apiFetch(`/api/admin/transactions?${params.toString()}`),
     ]);
-
     renderDashboard(dashboardPayload.stats);
     state.transactions = transactionsPayload.rows || [];
     state.total = transactionsPayload.total || 0;
@@ -318,6 +474,7 @@ async function loadSession() {
   state.user = payload.user?.role === "admin" ? payload.user : null;
   renderSession();
   if (state.user?.role === "admin") {
+    await loadShops();
     await loadAdminData({ showOverlay: true });
   }
 }
@@ -334,6 +491,7 @@ async function loginAdmin() {
     });
     state.user = payload.user;
     renderSession();
+    await loadShops();
     await loadAdminData({ showOverlay: true, loadingText: "正在載入跨店舖資料..." });
   } catch (error) {
     showError(error instanceof Error ? error.message : "管理員登入失敗");
@@ -347,9 +505,13 @@ async function logoutAdmin() {
   state.total = 0;
   state.pageCount = 1;
   state.page = 1;
+  state.selectedIds.clear();
+  state.selectedShopId = "";
+  state.shops = [];
   adminDashboardCards.innerHTML = "";
   adminTransactionTableBody.innerHTML = "";
   renderSession();
+  renderShops();
 }
 
 adminLoginButton.addEventListener("click", loginAdmin);
@@ -361,6 +523,7 @@ adminLogoutButton.addEventListener("click", logoutAdmin);
 adminPendingTabButton.addEventListener("click", async () => {
   state.mode = "pending";
   state.page = 1;
+  state.selectedIds.clear();
   adminPendingTabButton.classList.add("active");
   adminHistoryTabButton.classList.remove("active");
   await loadAdminData({ showOverlay: true, loadingText: "正在載入待審核資料..." });
@@ -369,14 +532,23 @@ adminPendingTabButton.addEventListener("click", async () => {
 adminHistoryTabButton.addEventListener("click", async () => {
   state.mode = "history";
   state.page = 1;
+  state.selectedIds.clear();
   adminHistoryTabButton.classList.add("active");
   adminPendingTabButton.classList.remove("active");
   await loadAdminData({ showOverlay: true, loadingText: "正在載入歷史紀錄..." });
 });
 
+adminShopSelect.addEventListener("change", async () => {
+  state.selectedShopId = adminShopSelect.value;
+  state.page = 1;
+  state.selectedIds.clear();
+  await loadAdminData({ showOverlay: true, loadingText: "正在切換商家..." });
+});
+
 adminCustomerSearchButton.addEventListener("click", async () => {
   state.searchTerm = adminCustomerSearchInput.value.trim();
   state.page = 1;
+  state.selectedIds.clear();
   await loadAdminData({ showOverlay: true, loadingText: "正在搜尋資料..." });
 });
 
@@ -384,6 +556,7 @@ adminCustomerSearchInput.addEventListener("keydown", async (event) => {
   if (event.key !== "Enter") return;
   state.searchTerm = adminCustomerSearchInput.value.trim();
   state.page = 1;
+  state.selectedIds.clear();
   await loadAdminData({ showOverlay: true, loadingText: "正在搜尋資料..." });
 });
 
@@ -391,28 +564,50 @@ adminCustomerSearchClearButton.addEventListener("click", async () => {
   adminCustomerSearchInput.value = "";
   state.searchTerm = "";
   state.page = 1;
+  state.selectedIds.clear();
   await loadAdminData({ showOverlay: true, loadingText: "正在刷新資料..." });
 });
 
 adminPageSizeSelect.addEventListener("change", async () => {
   state.pageSize = adminPageSizeSelect.value;
   state.page = 1;
+  state.selectedIds.clear();
   await loadAdminData({ showOverlay: true, loadingText: "正在切換頁面..." });
 });
 
+adminBatchApproveButton.addEventListener("click", async () => {
+  await runBatchApprove();
+});
+
+adminAutoApproveSweepButton.addEventListener("click", async () => {
+  await runAutoApproveSweep();
+});
+
 adminRefreshButton.addEventListener("click", async () => {
+  state.selectedIds.clear();
   await loadAdminData({ showOverlay: true, loadingText: "正在刷新資料..." });
+});
+
+adminSelectAllCheckbox.addEventListener("change", () => {
+  if (adminSelectAllCheckbox.checked) {
+    state.transactions.filter((row) => row.status === "pending").forEach((row) => state.selectedIds.add(row.id));
+  } else {
+    state.transactions.forEach((row) => state.selectedIds.delete(row.id));
+  }
+  renderTransactions(state.transactions);
 });
 
 adminPrevPageButton.addEventListener("click", async () => {
   if (state.page <= 1) return;
   state.page -= 1;
+  state.selectedIds.clear();
   await loadAdminData({ showOverlay: true, loadingText: "正在切換頁面..." });
 });
 
 adminNextPageButton.addEventListener("click", async () => {
-  if (state.page >= state.pageCount || state.pageSize === "all") return;
+  if (state.page >= state.pageCount) return;
   state.page += 1;
+  state.selectedIds.clear();
   await loadAdminData({ showOverlay: true, loadingText: "正在切換頁面..." });
 });
 

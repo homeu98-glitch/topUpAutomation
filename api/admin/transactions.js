@@ -20,15 +20,15 @@ export default async function handler(req, res) {
     }
     refreshSession(res, session);
 
-    const { mode, from, to, customerCode, page, pageSize } = req.query || {};
+    const { mode, from, to, customerCode, page, pageSize, shopId } = req.query || {};
     const payload = await listTransactions({
-      shopId: "",
+      shopId: String(shopId || ""),
       mode: String(mode || "pending"),
       from: String(from || ""),
       to: String(to || ""),
       customerCode: String(customerCode || ""),
       page: String(page || "1"),
-      pageSize: String(pageSize || "20"),
+      pageSize: String(pageSize || "50"),
       includeShop: true,
     });
 

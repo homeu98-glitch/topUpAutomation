@@ -6,6 +6,7 @@ import {
   ensureStorageDir,
   HAS_SUPABASE_STORAGE,
 } from "./lib/topup-service.js";
+import { applyEmbedResponseHeaders } from "./lib/embed-policy.js";
 import analyzeHandler from "./api/analyze.js";
 import meHandler from "./api/auth/me.js";
 import customerLoginHandler from "./api/auth/customer-login.js";
@@ -35,6 +36,10 @@ const PORT = Number(process.env.PORT || 3000);
 const STORAGE_DIR = path.join(__dirname, "storage");
 
 app.use(express.json({ limit: "2mb" }));
+app.use((req, res, next) => {
+  applyEmbedResponseHeaders(res);
+  next();
+});
 app.use(express.static(path.join(__dirname, "public")));
 
 function isRunningDirectly() {

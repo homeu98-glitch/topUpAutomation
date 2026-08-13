@@ -135,3 +135,25 @@ https://your-account.github.io/your-repo/?apiBaseUrl=https://your-render-service
 - The 8-digit member code is not enforced yet, but the frontend already accepts `?memberCode=12345678` for future integration.
 - Browser security may block automatic opening of the file picker on some devices. A manual select button is included as fallback.
 - Uploaded images are compressed and saved into `storage/` for POC purposes.
+
+## POS / macau-ledger iframe embed
+
+Owner and customer pages can load inside **macau-ledger** or **macauPosSystem** iframes.
+
+| Setting | Production (Vercel HTTPS) | Local `npm start` (HTTP) |
+|---------|----------------------------|---------------------------|
+| Session cookie | `SameSite=None; Secure` (default) | Set `SESSION_COOKIE_SAMESITE=lax` in `.env` |
+| Frame embed | `Content-Security-Policy: frame-ancestors …` via `vercel.json` | `lib/embed-policy.js` middleware in `server.js` |
+
+Optional env:
+
+- `TOPUP_FRAME_ANCESTORS` — extra parent origins (space/comma separated)
+- `SESSION_COOKIE_SAMESITE` — `none` (default), `lax`, or `strict`
+
+**macau-ledger SSO / webhooks are unchanged.** Same `SITEA_SSO_*` JWT flow and `SITEA_CALLBACK_*` webhooks; only cookie + CSP headers differ so third-party iframes can keep the owner session.
+
+## Server-side auto-approve (no browser required)
+
+`vercel.json` runs **`GET /api/cron/auto-approve` every minute**. It calls `runAutoApprovalSweep()` in the database for every shop with `auto_approve_enabled = true`.
+
+Once a merchant enables auto-approve in the owner UI, **approval continues even if nobody keeps the owner page or POS open**. The in-browser countdown in `owner.js` is only for live refresh; the cron job is authoritative.

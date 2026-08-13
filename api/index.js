@@ -1,4 +1,5 @@
 import { applyCors } from "../lib/topup-service.js";
+import { applyEmbedResponseHeaders } from "../lib/embed-policy.js";
 
 export const config = {
   api: {
@@ -7,6 +8,7 @@ export const config = {
 };
 
 export default async function handler(req, res) {
+  applyEmbedResponseHeaders(res);
   applyCors(req, res);
 
   if (req.method === "OPTIONS") {

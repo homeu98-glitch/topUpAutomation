@@ -82,10 +82,11 @@
           <div class="status-legend" aria-label="狀態說明">
             <span class="legend-title">狀態說明</span>
             <span>綠色：單號及金額已核實</span>
-            <span>黃色：僅單號已核實（需人工核對金額）</span>
+            <span>黃色：僅單號已核實(需人工核對金額)</span>
             <span>紅色：單號不匹配</span>
-            <span>紫色：AI 未辨識／沒有內容（需人工填寫）</span>
-            <span class="legend-note">若明細沒有金額，請先填寫「可編輯金額」，否則不能核准。</span>
+            <span>紅色：畫面中找不到交易單號,可能不是交易截圖</span>
+            <span>紫色：AI 未辨識／沒有內容(需人工填寫)</span>
+            <span class="legend-note">若明細沒有金額,請先填寫「可編輯金額」,否則不能核准。</span>
           </div>
           <div class="table-wrapper">
             <table class="owner-table">
@@ -150,12 +151,29 @@
             <div class="auto-approve-status-grid">
               <label class="check-row"><input id="adminAutoApproveAllowVerified" type="checkbox" checked /> 綠色：單號及金額已核實</label>
               <label class="check-row"><input id="adminAutoApproveAllowIdOnly" type="checkbox" /> 黃色：僅單號已核實</label>
-              <label class="check-row"><input id="adminAutoApproveAllowAiSkipped" type="checkbox" /> 紫色：AI 未辨識</label>
-              <label class="check-row"><input id="adminAutoApproveAllowNoMatch" type="checkbox" /> 紅色：單號不匹配</label>
+              <label class="check-row risk-check-row" data-risk-status="no_match"><input id="adminAutoApproveAllowNoMatch" type="checkbox" /> ⚠️ 紅色：單號不匹配(須二次確認)</label>
+              <label class="check-row risk-check-row" data-risk-status="no_order_id"><input id="adminAutoApproveAllowNoOrderId" type="checkbox" /> ⚠️ 紅色：找不到交易單號,可能不是交易截圖(須二次確認)</label>
+              <label class="check-row risk-check-row" data-risk-status="ai_skipped"><input id="adminAutoApproveAllowAiSkipped" type="checkbox" /> ⚠️ 紫色：AI 未辨識(須二次確認)</label>
             </div>
             <p class="detail-note" style="margin-top: 10px;">
-              為保障安全，目前自動核准只支援「綠色：單號及金額已核實」交易。其他選項暫時不會生效。
+              可同時勾選多個狀態;被 <strong>⚠️</strong> 標示的選項啟用時會彈出風險確認。可手動關閉單筆上限 / 冷卻時間預設於下方欄位。
             </p>
+            <div class="auto-approve-meta-grid" style="margin-top: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+              <label class="edit-field">
+                <span>單筆金額上限(0 = 不限)</span>
+                <div class="interval-input-row">
+                  <input id="adminAutoApproveMaxAmountInput" class="text-input" type="number" min="0" step="1" value="5000" />
+                  <span class="field-note">MOP</span>
+                </div>
+              </label>
+              <label class="edit-field">
+                <span>商家冷卻秒數(0 = 不冷卻)</span>
+                <div class="interval-input-row">
+                  <input id="adminAutoApproveCooldownInput" class="text-input" type="number" min="0" step="1" value="30" />
+                  <span class="field-note">秒</span>
+                </div>
+              </label>
+            </div>
           </div>
         </div>
         <div class="detail-dialog-actions" style="margin-top: 16px;">
@@ -163,6 +181,24 @@
           <button id="adminSaveAutoApproveButton" class="secondary-button" type="button">儲存設定</button>
           <button id="adminRunAutoApproveNowButton" class="secondary-button" type="button">立即執行</button>
           <button id="adminConfirmAutoApproveButton" class="primary-button" type="button">確認啟動</button>
+        </div>
+      </div>
+    </dialog>
+
+    <dialog id="adminRiskConfirmDialog" class="image-dialog detail-dialog">
+      <button id="adminCloseRiskConfirmButton" class="dialog-close" type="button">關閉</button>
+      <div class="owner-detail-content">
+        <div class="section-header">
+          <h3 id="adminRiskConfirmTitle">確認自動核准風險</h3>
+        </div>
+        <p id="adminRiskConfirmBody" class="detail-note" style="margin-top: 12px;"></p>
+        <div class="risk-confirm-countdown">
+          <span id="adminRiskConfirmCountdown">10</span>
+          <span class="field-note">秒後才能確認</span>
+        </div>
+        <div class="detail-dialog-actions" style="margin-top: 16px;">
+          <button id="adminCancelRiskConfirmButton" class="secondary-button" type="button">取消</button>
+          <button id="adminAcceptRiskConfirmButton" class="primary-button" type="button" disabled>我了解並接受風險</button>
         </div>
       </div>
     </dialog>
@@ -180,5 +216,6 @@
       };
     </script>
     <script src="/admin.js" type="module"></script>
+    <script src="/risk-confirm.js" type="module"></script>
   </body>
 </html>

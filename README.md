@@ -157,3 +157,74 @@ Optional env:
 `vercel.json` runs **`GET /api/cron/auto-approve` every minute**. It calls `runAutoApprovalSweep()` in the database for every shop with `auto_approve_enabled = true`.
 
 Once a merchant enables auto-approve in the owner UI, **approval continues even if nobody keeps the owner page or POS open**. The in-browser countdown in `owner.js` is only for live refresh; the cron job is authoritative.
+
+## Auto-approve: verification status & risk policy
+
+Auto-approve is now driven by the AI pipeline's per-transaction **verification status** rather than a single hard-coded "green" flag. Merchants choose which statuses are safe to auto-approve; everything else still requires manual review.
+
+### Verification status enum (5 values)
+
+`lib/topup-service.js → computeTransactionVerificationStatus()` produces one of these for every pending transaction:
+
+| Status | Meaning | Typical trigger |
+|--------|---------|-----------------|
+| `verified_amount_and_id` | 單號與金額都已核實 — 在 mPay 後台找到完全一致的交易 | 客戶截圖清晰、AI 完整讀取、與後台完全對上 |
+| `verified_id_only` | 單號核實但金額有差異 — 後台金額被採用作正確值 | 後台金額與客戶自填金額不一致 |
+| `no_match` | 找不到對應的後台交易 — 單號在 mPay 後台不存在 | 客戶提供別家單號、單號被改過、後台延遲 |
+| `no_order_id` | 圖中根本沒有可讀的單號 — 視為非交易截圖 | 空白、截到別的畫面、相片、模糊 |
+| `ai_skipped` | AI 沒讀到任何欄位 — 額度滿或管線被跳過 | 額度耗盡、模型錯誤、手動跳過 |
+
+Legacy `null` (no order number at all) is normalized to `no_order_id` so the UI always has a color and label.
+
+### `shops.auto_approve_settings` JSON column
+
+Added in `supabase/schema.sql`. The whole auto-approve policy for a shop lives in a single jsonb column so future knobs (e.g. per-shop flag, transaction count cap) can be added without further migrations.
+
+```jsonc
+{
+  "allowed_statuses": ["verified_amount_and_id"],   // 商家勾選要自動核准的狀態
+  "max_amount": 5000,                                // 單筆金額上限(MOP);超過則不自動批
+  "cooldown_seconds": 30,                            // 同一商家兩次自動核准之間的最短間隔
+  "last_auto_approved_at": null                      // 由系統寫入,商家不需手動設定
+}
+```
+
+Default values come from env vars (see below). Validation is enforced server-side by `normalizeAutoApproveSettings()` and `sanitizeAutoApproveSettingsPatch()` — unknown statuses are dropped, types are coerced, and only whitelisted keys are accepted from API input.
+
+### Backend sweep logic (`runAutoApprovalSweep`)
+
+For each shop with `auto_approve_enabled = true` and per-tx in `pending`:
+
+1. If `now - last_auto_approved_at < cooldown_seconds`, **skip the whole shop** (one cooldown, not one per tx).
+2. If `txTotalAmount > max_amount`, skip that tx.
+3. If `tx.verificationStatus ∉ allowed_statuses`, skip that tx.
+4. Otherwise, look up the backoffice row to get the trusted amount, then call the same approval pipeline as the owner button.
+
+`last_auto_approved_at` is updated **after every successful approval** so a single bad tx can't burn the whole shop's quota.
+
+### Risk confirmation modal (10-second countdown)
+
+Merchants who opt in to any of the three risky statuses (`no_match`, `no_order_id`, `ai_skipped`) are required to confirm via a native `<dialog>` modal **before the checkbox sticks**. Implementation: `public/risk-confirm.js`.
+
+- `RISKY_AUTO_APPROVE_STATUSES = ["no_match", "no_order_id", "ai_skipped"]`
+- Each status has tailored copy explaining what the customer could have done and what the merchant is giving up.
+- The "I understand and accept the risk" button is **disabled for 10 seconds** with a live countdown; the merchant can also press Cancel/Close to abort.
+- On cancel, the corresponding checkbox is **automatically un-ticked** so the setting is never silently saved.
+- On accept, the checkbox stays checked, the settings API call is made, and a single confirmation toast appears (not per-status spam).
+- Green/yellow (`verified_amount_and_id` / `verified_id_only`) silently enable — no toast, no modal.
+
+### Environment variables
+
+| Var | Default | Purpose |
+|-----|---------|---------|
+| `AUTO_APPROVE_DEFAULT_MAX_AMOUNT` | `5000` | Default `max_amount` written to new `auto_approve_settings` rows |
+| `AUTO_APPROVE_DEFAULT_COOLDOWN_SECONDS` | `30` | Default `cooldown_seconds` between two auto-approvals in the same shop |
+
+Both are read at module load in `lib/topup-service.js`. Changing them after deploy only affects **newly inserted rows** — existing shops keep whatever they last saved.
+
+### Safety reminders
+
+- The amount cap and cooldown are **hard guards** — the server enforces them even if the merchant's UI is bypassed.
+- The risk modal is **the only** friction between a merchant and enabling risky auto-approve; treat it as a guard, not a guarantee.
+- `verified_amount_and_id` is still the recommended default; widening to other statuses is a conscious decision the merchant must make in the settings dialog.
+- Keep the cron at ≥ 1 minute — more frequent sweeps don't help because the cooldown gates back-to-back approvals anyway.

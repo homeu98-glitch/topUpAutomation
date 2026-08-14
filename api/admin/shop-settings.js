@@ -25,14 +25,20 @@ export default async function handler(req, res) {
     }
 
     if (req.method === "POST") {
-      const { shopId, autoApproveEnabled, autoApproveIntervalSeconds } = req.body || {};
+      const { shopId, autoApproveEnabled, autoApproveIntervalSeconds, autoApproveSettings } = req.body || {};
       if (!shopId) {
         return res.status(400).json({ error: "缺少商家編號" });
       }
       const settings = await updateOwnerSettings({
         shopId: String(shopId),
         autoApproveEnabled: Boolean(autoApproveEnabled),
-        autoApproveIntervalSeconds: Math.max(1, Number(autoApproveIntervalSeconds) || 300),
+        autoApproveIntervalSeconds:
+          autoApproveIntervalSeconds === undefined
+            ? 300
+            : Math.max(1, Number(autoApproveIntervalSeconds) || 300),
+        autoApproveSettings: autoApproveSettings && typeof autoApproveSettings === "object"
+          ? autoApproveSettings
+          : undefined,
       });
       return res.status(200).json({ settings });
     }

@@ -20,11 +20,17 @@ export default async function handler(req, res) {
     }
     refreshSession(res, session);
 
-    const { shopIds, autoApproveEnabled, autoApproveIntervalSeconds } = req.body || {};
+    const { shopIds, autoApproveEnabled, autoApproveIntervalSeconds, autoApproveSettings } = req.body || {};
     const settings = await updateOwnerSettingsBulk({
       shopIds: Array.isArray(shopIds) ? shopIds.map(String) : [],
       autoApproveEnabled: Boolean(autoApproveEnabled),
-      autoApproveIntervalSeconds: Math.max(1, Number(autoApproveIntervalSeconds) || 300),
+      autoApproveIntervalSeconds:
+        autoApproveIntervalSeconds === undefined
+          ? 300
+          : Math.max(1, Number(autoApproveIntervalSeconds) || 300),
+      autoApproveSettings: autoApproveSettings && typeof autoApproveSettings === "object"
+        ? autoApproveSettings
+        : undefined,
     });
 
     return res.status(200).json({ settings, count: settings.length });

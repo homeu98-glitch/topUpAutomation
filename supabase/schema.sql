@@ -43,13 +43,15 @@ insert into public.shops (code, name, owner_login, owner_password)
 values
   ('POC001', '表嫂美食', '60000000', '0000'),
   ('POC002', '示範茶餐廳', 'owner-demo', '123456')
-on conflict (code) do nothing;
+on conflict do nothing;
 
 alter table public.shops add column if not exists auto_approve_enabled boolean not null default false;
 alter table public.shops add column if not exists auto_approve_interval_minutes integer not null default 5;
 alter table public.shops add column if not exists external_shop_id text unique;
 alter table public.shops add column if not exists owner_external_id text;
 alter table public.shops add column if not exists auth_source text not null default 'local';
+alter table public.shops add column if not exists auto_approve_settings jsonb not null default
+  '{"allowed_statuses": ["verified_amount_and_id"], "max_amount": 5000, "cooldown_seconds": 30, "last_auto_approved_at": null}'::jsonb;
 alter table public.transactions drop constraint if exists transactions_status_check;
 alter table public.transactions
   add constraint transactions_status_check

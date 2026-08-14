@@ -21,11 +21,17 @@ export default async function handler(req, res) {
     }
 
     if (req.method === "POST") {
-      const { autoApproveEnabled, autoApproveIntervalSeconds } = req.body || {};
+      const { autoApproveEnabled, autoApproveIntervalSeconds, autoApproveSettings } = req.body || {};
       const settings = await updateOwnerSettings({
         shopId: session.shopId,
         autoApproveEnabled: Boolean(autoApproveEnabled),
-        autoApproveIntervalSeconds: Math.max(1, Number(autoApproveIntervalSeconds) || 300),
+        autoApproveIntervalSeconds:
+          autoApproveIntervalSeconds === undefined
+            ? 300
+            : Math.max(1, Number(autoApproveIntervalSeconds) || 300),
+        autoApproveSettings: autoApproveSettings && typeof autoApproveSettings === "object"
+          ? autoApproveSettings
+          : undefined,
       });
       return res.status(200).json({ settings });
     }

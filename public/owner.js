@@ -1,3 +1,5 @@
+import { createRiskConfirm, isRiskyAutoApproveStatus } from "./risk-confirm.js";
+
 const apiBaseUrl = (() => {
   const params = new URLSearchParams(window.location.search);
   return (params.get("apiBaseUrl") || window.APP_CONFIG?.apiBaseUrl || "").replace(/\/$/, "");
@@ -14,6 +16,8 @@ const state = {
   selectedIds: new Set(),
   autoApproveEnabled: false,
   autoApproveIntervalSeconds: 300,
+  autoApproveMaxAmount: 5000,
+  autoApproveCooldownSeconds: 30,
   authBooting: true,
   searchTerm: "",
   pendingCount: 0,
@@ -91,6 +95,16 @@ const autoApproveAllowVerified = document.getElementById("autoApproveAllowVerifi
 const autoApproveAllowIdOnly = document.getElementById("autoApproveAllowIdOnly");
 const autoApproveAllowAiSkipped = document.getElementById("autoApproveAllowAiSkipped");
 const autoApproveAllowNoMatch = document.getElementById("autoApproveAllowNoMatch");
+const autoApproveAllowNoOrderId = document.getElementById("autoApproveAllowNoOrderId");
+const autoApproveMaxAmountInput = document.getElementById("autoApproveMaxAmountInput");
+const autoApproveCooldownInput = document.getElementById("autoApproveCooldownInput");
+const riskConfirmDialog = document.getElementById("riskConfirmDialog");
+const riskConfirmTitle = document.getElementById("riskConfirmTitle");
+const riskConfirmBody = document.getElementById("riskConfirmBody");
+const riskConfirmCountdown = document.getElementById("riskConfirmCountdown");
+const acceptRiskConfirmButton = document.getElementById("acceptRiskConfirmButton");
+const cancelRiskConfirmButton = document.getElementById("cancelRiskConfirmButton");
+const closeRiskConfirmButton = document.getElementById("closeRiskConfirmButton");
 const disableAutoApproveButton = document.getElementById("disableAutoApproveButton");
 const confirmAutoApproveButton = document.getElementById("confirmAutoApproveButton");
 const ownerLoadingOverlay = document.getElementById("ownerLoadingOverlay");
@@ -159,6 +173,17 @@ function getVerificationMeta(status) {
       previewClass: "failed-preview",
       label: "單號不匹配",
       shortLabel: "不匹配",
+    };
+  }
+  if (status === "no_order_id") {
+    return {
+      tagClass: "failed-tag",
+      bannerClass: "no-order-id-banner",
+      thumbClass: "no-order-id-thumb",
+      itemClass: "failed-item",
+      previewClass: "no-order-id-preview",
+      label: "找不到交易單號,可能不是交易截圖",
+      shortLabel: "無單號",
     };
   }
   return null;
@@ -530,12 +555,27 @@ async function clearCustomerSearch() {
 function syncAutoApproveDialog() {
   autoApproveStateBadge.textContent = state.autoApproveEnabled ? "已啟用" : "未啟用";
   autoApproveIntervalInput.value = String(state.autoApproveIntervalSeconds || 300);
+  if (autoApproveMaxAmountInput) {
+    autoApproveMaxAmountInput.value = String(
+      state.autoApproveMaxAmount === undefined || state.autoApproveMaxAmount === null
+        ? 5000
+        : state.autoApproveMaxAmount
+    );
+  }
+  if (autoApproveCooldownInput) {
+    autoApproveCooldownInput.value = String(
+      state.autoApproveCooldownSeconds === undefined || state.autoApproveCooldownSeconds === null
+        ? 30
+        : state.autoApproveCooldownSeconds
+    );
+  }
   disableAutoApproveButton.classList.toggle("hidden", !state.autoApproveEnabled);
   const allowed = new Set(Array.isArray(state.autoApproveAllowedStatuses) ? state.autoApproveAllowedStatuses : []);
   if (autoApproveAllowVerified) autoApproveAllowVerified.checked = allowed.has("verified_amount_and_id");
   if (autoApproveAllowIdOnly) autoApproveAllowIdOnly.checked = allowed.has("verified_id_only");
   if (autoApproveAllowAiSkipped) autoApproveAllowAiSkipped.checked = allowed.has("ai_skipped");
   if (autoApproveAllowNoMatch) autoApproveAllowNoMatch.checked = allowed.has("no_match");
+  if (autoApproveAllowNoOrderId) autoApproveAllowNoOrderId.checked = allowed.has("no_order_id");
 }
 
 async function runBatchApprove() {
@@ -965,6 +1005,18 @@ async function loadOwnerData(options = {}) {
     if (settingsPayload?.settings) {
       state.autoApproveEnabled = Boolean(settingsPayload.settings?.auto_approve_enabled);
       state.autoApproveIntervalSeconds = Number(settingsPayload.settings?.auto_approve_interval_minutes || 300);
+      const incomingSettings = settingsPayload.settings?.auto_approve_settings;
+      if (incomingSettings && typeof incomingSettings === "object") {
+        if (Array.isArray(incomingSettings.allowed_statuses)) {
+          state.autoApproveAllowedStatuses = incomingSettings.allowed_statuses;
+        }
+        if (incomingSettings.max_amount !== undefined) {
+          state.autoApproveMaxAmount = Number(incomingSettings.max_amount);
+        }
+        if (incomingSettings.cooldown_seconds !== undefined) {
+          state.autoApproveCooldownSeconds = Number(incomingSettings.cooldown_seconds);
+        }
+      }
       state.settingsLoadedAt = Date.now();
     }
     renderDashboard(state.dashboardStats);
@@ -1265,17 +1317,37 @@ mobileLiveModeIntervalSelect?.addEventListener("change", () => {
   applyLiveModeInterval(mobileLiveModeIntervalSelect.value);
 });
 
-async function updateAutoApproveSettings(autoApproveEnabled) {
+async function updateAutoApproveSettings(autoApproveEnabled, options = {}) {
   const intervalSeconds = Math.max(1, Number(autoApproveIntervalInput.value) || state.autoApproveIntervalSeconds || 300);
+  const maxAmount = autoApproveMaxAmountInput
+    ? Math.max(0, Number(autoApproveMaxAmountInput.value) || 0)
+    : state.autoApproveMaxAmount || 0;
+  const cooldownSeconds = autoApproveCooldownInput
+    ? Math.max(0, Number(autoApproveCooldownInput.value) || 0)
+    : state.autoApproveCooldownSeconds || 0;
+  const allowedStatuses = Array.isArray(options.allowedStatuses)
+    ? options.allowedStatuses
+    : state.autoApproveAllowedStatuses;
   try {
     confirmAutoApproveButton.disabled = true;
     disableAutoApproveButton.disabled = true;
     await apiFetch("/api/owner/settings", {
       method: "POST",
-      body: JSON.stringify({ autoApproveEnabled, autoApproveIntervalSeconds: intervalSeconds }),
+      body: JSON.stringify({
+        autoApproveEnabled,
+        autoApproveIntervalSeconds: intervalSeconds,
+        autoApproveSettings: {
+          allowed_statuses: allowedStatuses,
+          max_amount: maxAmount,
+          cooldown_seconds: cooldownSeconds,
+        },
+      }),
     });
     state.autoApproveEnabled = autoApproveEnabled;
     state.autoApproveIntervalSeconds = intervalSeconds;
+    state.autoApproveAllowedStatuses = allowedStatuses;
+    state.autoApproveMaxAmount = maxAmount;
+    state.autoApproveCooldownSeconds = cooldownSeconds;
     state.autoApproveRemainingSeconds = autoApproveEnabled ? intervalSeconds : 0;
     state.settingsLoadedAt = Date.now();
     syncAutoApproveDialog();
@@ -1285,7 +1357,7 @@ async function updateAutoApproveSettings(autoApproveEnabled) {
     } else {
       stopAutoApproveCountdown();
     }
-    showStatus(autoApproveEnabled ? `已開啟自動核准，間隔 ${intervalSeconds} 秒` : "已關閉自動核准", 2200);
+    showStatus(autoApproveEnabled ? `已開啟自動核准,間隔 ${intervalSeconds} 秒` : "已關閉自動核准", 2200);
     if (!autoApproveEnabled) {
       autoApproveDialog.close();
     }
@@ -1320,18 +1392,59 @@ mobileMenuReturnButton?.addEventListener("click", () => {
 });
 
 confirmAutoApproveButton.addEventListener("click", async () => {
+  // Step 1: read selections and identify any "risky" statuses the merchant
+  // toggled on. If any risky status is being newly enabled, prompt the
+  // 10-second risk modal first.
+  const previouslyAllowed = new Set(state.autoApproveAllowedStatuses || []);
   const selected = [];
-  if (autoApproveAllowVerified?.checked) selected.push("verified_amount_and_id");
-  if (autoApproveAllowIdOnly?.checked) selected.push("verified_id_only");
-  if (autoApproveAllowAiSkipped?.checked) selected.push("ai_skipped");
-  if (autoApproveAllowNoMatch?.checked) selected.push("no_match");
-  state.autoApproveAllowedStatuses = selected;
-  persistAutoApproveAllowedPreference();
-  if (!autoApproveAllowVerified?.checked) {
-    showError("目前自動核准只支援綠色（單號及金額已核實）交易，請至少勾選綠色選項。");
-    return;
+  const riskyPending = [];
+  function pushStatus(checkEl, status) {
+    if (!checkEl?.checked) return;
+    selected.push(status);
+    if (!previouslyAllowed.has(status) && isRiskyAutoApproveStatus(status)) {
+      riskyPending.push(status);
+    }
   }
-  await updateAutoApproveSettings(true);
+  pushStatus(autoApproveAllowVerified, "verified_amount_and_id");
+  pushStatus(autoApproveAllowIdOnly, "verified_id_only");
+  pushStatus(autoApproveAllowNoMatch, "no_match");
+  pushStatus(autoApproveAllowNoOrderId, "no_order_id");
+  pushStatus(autoApproveAllowAiSkipped, "ai_skipped");
+
+  let confirmedStatuses = selected;
+  if (riskyPending.length) {
+    const riskConfirm = createRiskConfirm({
+      dialog: riskConfirmDialog,
+      titleElement: riskConfirmTitle,
+      bodyElement: riskConfirmBody,
+      countdownElement: riskConfirmCountdown,
+      acceptButton: acceptRiskConfirmButton,
+      cancelButton: cancelRiskConfirmButton,
+      closeTrigger: closeRiskConfirmButton,
+      onCancel: (status) => {
+        // Untick the corresponding checkbox the merchant tried to enable.
+        if (status === "no_match" && autoApproveAllowNoMatch) autoApproveAllowNoMatch.checked = false;
+        if (status === "no_order_id" && autoApproveAllowNoOrderId) autoApproveAllowNoOrderId.checked = false;
+        if (status === "ai_skipped" && autoApproveAllowAiSkipped) autoApproveAllowAiSkipped.checked = false;
+      },
+    });
+    // Show modal for each risky status sequentially. Only statuses the
+    // merchant actually accepted are kept.
+    const accepted = new Set(riskyPending);
+    for (const status of riskyPending) {
+      const result = await riskConfirm.show({ status });
+      if (!result.accepted) {
+        accepted.delete(status);
+      }
+    }
+    confirmedStatuses = selected.filter(
+      (status) => !riskyPending.includes(status) || accepted.has(status)
+    );
+  }
+
+  state.autoApproveAllowedStatuses = confirmedStatuses;
+  persistAutoApproveAllowedPreference();
+  await updateAutoApproveSettings(true, { allowedStatuses: confirmedStatuses });
 });
 
 disableAutoApproveButton.addEventListener("click", async () => {

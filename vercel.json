@@ -10,6 +10,12 @@
       ]
     }
   ],
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/index.js"
+    }
+  ],
   "crons": [
     {
       "path": "/api/cron/auto-approve",

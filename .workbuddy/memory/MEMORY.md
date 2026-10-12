@@ -6,6 +6,7 @@
 - `api/index.js`：Vercel 正式部署用 catch-all，動態 `import("../routes/...")`，包晒所有 route。
 - `public/*.js` 嘅 `/api/...` 係 HTTP URL，永遠唔使改（由 catch-all 處理）。
 - `vercel.json` 個 cron `/api/cron/auto-approve` 經 catch-all 處理。
+- catch-all `api/index.js` 必須保留 `bodyParser: false` + 手動 `readJsonBody()` parse JSON（唔可以靠 Vercel auto-parse，因為 catch-all 關咗 bodyParser）；只有 3 個 multipart route（analyze / customer/submit / customer/submit-raw）要靠 formidable 讀 raw stream，所以 catch-all 唔可以開 auto bodyParser 同時又要保護 multipart。
 
 ## 環境 / 部署平台
 - Vercel（Hobby）做正式部署；另 Render（render.yaml）跑 `npm start`。

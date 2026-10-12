@@ -84,6 +84,7 @@ export default async function handler(req, res) {
       aiOcrModel: process.env.AI_OCR_MODEL || "qwen-vl-ocr",
       aiTextModel: process.env.AI_TEXT_MODEL || "qwen-plus-2025-07-28",
       aiVlFallbackModel: process.env.AI_VL_FALLBACK_MODEL || "qwen3-vl-32b-instruct",
+      aiOrchestratorEnabled: process.env.AI_ORCHESTRATOR_ENABLED !== "false",
     });
   }
 

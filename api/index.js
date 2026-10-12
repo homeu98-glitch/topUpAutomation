@@ -52,11 +52,23 @@ export default async function handler(req, res) {
 
   if (pathname.endsWith("/health")) {
     let aiBaseUrlHost = "";
+    let aiBaseUrlEndsWithApiV1 = false;
     try {
-      aiBaseUrlHost = process.env.AI_BASE_URL ? new URL(process.env.AI_BASE_URL).host : "";
+      if (process.env.AI_BASE_URL) {
+        const u = new URL(process.env.AI_BASE_URL);
+        aiBaseUrlHost = u.host;
+        aiBaseUrlEndsWithApiV1 = u.pathname.replace(/\/$/, "") === "/api/v1";
+      }
     } catch {
       aiBaseUrlHost = "";
     }
+    // Only expose the *format* of the key (never the secret itself) so a
+    // mis-pasted provider key is obvious without leaking credentials.
+    const aiKeyRaw = process.env.AI_API_KEY || "";
+    let aiKeyFormat = "empty";
+    if (aiKeyRaw.startsWith("sk-or-")) aiKeyFormat = "openrouter";
+    else if (aiKeyRaw.startsWith("AIza")) aiKeyFormat = "google-gemini";
+    else if (aiKeyRaw) aiKeyFormat = "other";
     return res.status(200).json({
       ok: true,
       route: "api/index/health",
@@ -66,6 +78,12 @@ export default async function handler(req, res) {
           : "local",
       hasAiConfig: Boolean(process.env.AI_BASE_URL && process.env.AI_API_KEY),
       aiBaseUrlHost,
+      aiBaseUrlEndsWithApiV1,
+      aiKeyFormat,
+      aiModel: process.env.AI_MODEL || "qwen-vl-plus",
+      aiOcrModel: process.env.AI_OCR_MODEL || "qwen-vl-ocr",
+      aiTextModel: process.env.AI_TEXT_MODEL || "qwen-plus-2025-07-28",
+      aiVlFallbackModel: process.env.AI_VL_FALLBACK_MODEL || "qwen3-vl-32b-instruct",
     });
   }
 

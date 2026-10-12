@@ -3,9 +3,39 @@ import { applyEmbedResponseHeaders } from "../lib/embed-policy.js";
 
 export const config = {
   api: {
+    // Keep the raw stream so multipart routes (analyze / customer submit) can
+    // use formidable. JSON routes get their body parsed below instead.
     bodyParser: false,
   },
 };
+
+/**
+ * Vercel no longer auto-parses JSON bodies once bodyParser is disabled at the
+ * catch-all level, so parse application/json requests manually here.
+ * multipart/form-data is deliberately left untouched for formidable to read.
+ */
+async function readJsonBody(req) {
+  const method = (req.method || "GET").toUpperCase();
+  if (method === "GET" || method === "HEAD" || method === "OPTIONS") return;
+  const contentType = req.headers["content-type"] || "";
+  if (contentType.startsWith("multipart/form-data")) return;
+
+  const raw = await new Promise((resolve) => {
+    let data = "";
+    req.on("data", (chunk) => {
+      data += chunk;
+    });
+    req.on("end", () => resolve(data));
+    req.on("error", () => resolve(""));
+  });
+
+  if (!raw) return;
+  try {
+    req.body = JSON.parse(raw);
+  } catch {
+    req.body = undefined;
+  }
+}
 
 export default async function handler(req, res) {
   applyEmbedResponseHeaders(res);
@@ -14,6 +44,8 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") {
     return res.status(204).end();
   }
+
+  await readJsonBody(req);
 
   const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
   const pathname = url.pathname.replace(/\/+$/, "");

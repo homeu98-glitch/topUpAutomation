@@ -51,6 +51,12 @@ export default async function handler(req, res) {
   const pathname = url.pathname.replace(/\/+$/, "");
 
   if (pathname.endsWith("/health")) {
+    let aiBaseUrlHost = "";
+    try {
+      aiBaseUrlHost = process.env.AI_BASE_URL ? new URL(process.env.AI_BASE_URL).host : "";
+    } catch {
+      aiBaseUrlHost = "";
+    }
     return res.status(200).json({
       ok: true,
       route: "api/index/health",
@@ -59,6 +65,7 @@ export default async function handler(req, res) {
           ? "supabase"
           : "local",
       hasAiConfig: Boolean(process.env.AI_BASE_URL && process.env.AI_API_KEY),
+      aiBaseUrlHost,
     });
   }
 

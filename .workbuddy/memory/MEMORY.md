@@ -11,3 +11,9 @@
 ## 環境 / 部署平台
 - Vercel（Hobby）做正式部署；另 Render（render.yaml）跑 `npm start`。
 - Hobby 嘅「單次部署最多 12 Serverless Function」硬上限至今未改（2025-2026 只改咗 CPU/記憶體/呼叫次數計費模型）。
+
+## AI 供應商切換守則（重要）
+- 切 AI 供應商（Aliyun ↔ OpenRouter ↔ Gemini）時，唔可以只改 `AI_BASE_URL` + `AI_API_KEY`：
+  - OpenRouter key 必須以 `sk-or-` 開頭；Gemini native key 係 `AIza…`（但本 project 嘅 `requestChatCompletion` 係 OpenAI-compatible `/chat/completions` + `Bearer` header，只支援 OpenRouter / Aliyun compatible-mode，唔支援 Gemini native `?key=` 格式）。
+  - `AI_MODEL` / `AI_OCR_MODEL` / `AI_TEXT_MODEL` / `AI_VL_FALLBACK_MODEL` 四個都要係該供應商有嘅 model ID，否則 auth 過咗都會 404。OpenRouter 上可用 `google/gemini-2.5-flash`、`google/gemma-3-12b-it:free` 等。
+  - OpenRouter 嘅 `401 Missing Authentication header` 對「無效 key」同「冇 header」都會報同一句，唔可以當做 key 冇 set。

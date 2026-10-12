@@ -154,9 +154,11 @@ Optional env:
 
 ## Server-side auto-approve (no browser required)
 
-`vercel.json` runs **`GET /api/cron/auto-approve` every minute**. It calls `runAutoApprovalSweep()` in the database for every shop with `auto_approve_enabled = true`.
+`vercel.json` runs **`GET /api/cron/auto-approve` once per day** (`0 0 * * *`, UTC) — daily frequency is the maximum allowed on the Vercel Hobby plan. It calls `runAutoApprovalSweep()` in the database for every shop with `auto_approve_enabled = true`.
 
-Once a merchant enables auto-approve in the owner UI, **approval continues even if nobody keeps the owner page or POS open**. The in-browser countdown in `owner.js` is only for live refresh; the cron job is authoritative.
+Once a merchant enables auto-approve in the owner UI, **approval continues even if nobody keeps the owner page or POS open** — but only up to once per day while on the Hobby plan. The in-browser countdown in `owner.js` is only for live refresh; the cron job is authoritative for background approvals.
+
+> **Note:** The original design called for a per-minute sweep. The daily schedule is a Hobby-plan compromise. To restore near-real-time auto-approve, either upgrade to Vercel Pro (allows `* * * * *`) or move the trigger off Vercel cron to an external scheduler (e.g. cron-job.org / EasyCron) hitting `/api/cron/auto-approve` every minute — and add an auth token to that endpoint first, since it is currently unauthenticated.
 
 ## Auto-approve: verification status & risk policy
 
@@ -227,4 +229,4 @@ Both are read at module load in `lib/topup-service.js`. Changing them after depl
 - The amount cap and cooldown are **hard guards** — the server enforces them even if the merchant's UI is bypassed.
 - The risk modal is **the only** friction between a merchant and enabling risky auto-approve; treat it as a guard, not a guarantee.
 - `verified_amount_and_id` is still the recommended default; widening to other statuses is a conscious decision the merchant must make in the settings dialog.
-- Keep the cron at ≥ 1 minute — more frequent sweeps don't help because the cooldown gates back-to-back approvals anyway.
+- On the Hobby plan the cron runs at most once per day (`0 0 * * *`), so approvals can lag up to ~24h behind a pending transaction. More frequent sweeps don't help because the cooldown gates back-to-back approvals anyway — but the daily ceiling is a plan limit, not a design choice.

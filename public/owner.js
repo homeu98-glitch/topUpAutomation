@@ -448,7 +448,8 @@ function renderOwnerSession() {
   }
 
   ownerShopBadge.textContent = state.user.shopName || "未命名店舖";
-  ownerLoginBadge.textContent = state.user.ownerLogin || "-";
+  ownerLoginBadge.textContent = state.user.shopCode || state.user.ownerLogin || "-";
+  ownerLoginBadge.title = `店舖編號 ${state.user.shopCode || "-"} · 登入帳號 ${state.user.ownerLogin || "-"}`;
   autoApproveButton.textContent = state.autoApproveEnabled
     ? `自動核准中（${Math.max(0, state.autoApproveRemainingSeconds || state.autoApproveIntervalSeconds)} 秒）`
     : "設定自動核准";
@@ -467,7 +468,8 @@ function renderOwnerSession() {
   pendingTabButton.classList.toggle("active", state.mode === "pending");
   historyTabButton.classList.toggle("active", state.mode === "history");
   mobileOwnerShopName.textContent = state.user.shopName || "未命名店舖";
-  mobileOwnerLogin.textContent = state.user.ownerLogin || "-";
+  mobileOwnerLogin.textContent = state.user.shopCode || state.user.ownerLogin || "-";
+  mobileOwnerLogin.title = `店舖編號 ${state.user.shopCode || "-"} · 登入帳號 ${state.user.ownerLogin || "-"}`;
   mobileMenuBatchApproveButton.disabled = !state.selectedIds.size || (state.mode !== "pending" && !state.searchTerm);
 }
 
@@ -865,7 +867,8 @@ function renderTransactions(transactions) {
     button.addEventListener("click", () => {
       const transaction = state.transactions.find((row) => row.id === button.dataset.id);
       if (transaction) {
-        showDetailDialog(transaction);
+        if (isMobileView()) openMobileApproveSheet(transaction);
+        else showDetailDialog(transaction);
       }
     });
   });
@@ -1529,4 +1532,177 @@ window.addEventListener("load", async () => {
 document.addEventListener("visibilitychange", async () => {
   if (document.hidden || state.user?.role !== "owner" || !state.liveModeEnabled) return;
   await loadOwnerData();
+});
+
+// ===== 手機版專用：全屏批核 sheet（桌機不會觸發） =====
+const isMobileView = () => window.matchMedia("(max-width: 760px)").matches;
+
+const maOverlay = document.getElementById("mobileApproveOverlay");
+const maBgImg = document.getElementById("maBgImg");
+const maViewHint = document.getElementById("maViewHint");
+const maCloseBtn = document.getElementById("maCloseBtn");
+const maHistoryBtn = document.getElementById("maHistoryBtn");
+const maAvatar = document.getElementById("maAvatar");
+const maNameEl = document.getElementById("maName");
+const maPhoneEl = document.getElementById("maPhone");
+const maMemberEl = document.getElementById("maMember");
+const maPenBtn = document.getElementById("maPenBtn");
+const maAmountEl = document.getElementById("maAmount");
+const maStatusEl = document.getElementById("maStatus");
+const maRejectBtn = document.getElementById("maRejectBtn");
+const maAcceptBtn = document.getElementById("maAcceptBtn");
+const maEdit = document.getElementById("maEdit");
+const maEditInput = document.getElementById("maEditInput");
+const maEditNote = document.getElementById("maEditNote");
+const maEditCancel = document.getElementById("maEditCancel");
+const maEditSave = document.getElementById("maEditSave");
+const maLightbox = document.getElementById("maLightbox");
+const maLightboxClose = document.getElementById("maLightboxClose");
+const maLightboxImg = document.getElementById("maLightboxImg");
+const maToast = document.getElementById("maToast");
+const maToastMsg = document.getElementById("maToastMsg");
+const maToastUndo = document.getElementById("maToastUndo");
+
+let maCurrentTx = null;
+let maCurrentAmount = 0;
+let maEditedAmount = null;
+let maToastTimer = null;
+
+function maShowToast(message, withUndo) {
+  maToastMsg.textContent = message;
+  maToastUndo.style.display = withUndo ? "inline" : "none";
+  maToast.classList.add("show");
+  clearTimeout(maToastTimer);
+  maToastTimer = setTimeout(() => maToast.classList.remove("show"), withUndo ? 4000 : 1800);
+}
+
+function maBuildStatus(tx) {
+  const first = (tx.items || [])[0];
+  if (!first) return { text: "沒有交易圖片", cls: "ma-status-neutral" };
+  const golden = first.verificationBackofficeAmount;
+  const submitted = Number(first.selectedAmount || first.manualAmount || first.extracted?.amount || 0);
+  if (golden != null && Number(golden) > 0) {
+    const matched = Math.abs(Number(golden) - submitted) < 0.005;
+    return matched
+      ? { text: `✓ 已比對 mPay 後台黃金金額 ${formatCurrency(golden)}，一致`, cls: "ma-status-ok" }
+      : { text: `⚠ mPay 黃金金額 ${formatCurrency(golden)} 與提交 ${formatCurrency(submitted)} 不符，請確認`, cls: "ma-status-warn" };
+  }
+  return { text: "尚無 mPay 黃金金額可供比對", cls: "ma-status-neutral" };
+}
+
+function openMobileApproveSheet(tx) {
+  maCurrentTx = tx;
+  maCurrentAmount = Number(tx.total_amount || 0);
+  maEditedAmount = null;
+
+  const firstImage = (tx.items || [])[0]?.previewUrl;
+  maBgImg.src = firstImage || "";
+  maLightboxImg.src = firstImage || "";
+
+  const fullName = tx.customer_full_name || "";
+  const phone = tx.customer_phone || "";
+  maNameEl.textContent = fullName || `會員 ${tx.customer_code || "—"}`;
+  maPhoneEl.textContent = phone || "（無電話紀錄）";
+  const initial = (fullName || tx.customer_code || "?").trim().charAt(0).toUpperCase();
+  maAvatar.textContent = initial;
+  maMemberEl.textContent = tx.customer_code || "—";
+
+  maAmountEl.textContent = formatCurrency(maCurrentAmount);
+  maAmountEl.classList.remove("miss");
+
+  const isPending = String(tx.status || "") === "pending";
+  maRejectBtn.style.display = isPending ? "" : "none";
+  maAcceptBtn.style.display = isPending ? "" : "none";
+  if (isPending) {
+    const status = maBuildStatus(tx);
+    maStatusEl.textContent = status.text;
+    maStatusEl.className = "ma-status " + status.cls;
+  } else {
+    const label = tx.status === "approved" ? "已核准" : tx.status === "rejected" ? "已拒絕" : tx.status;
+    maStatusEl.textContent = `此交易狀態為「${label}」，不可再操作`;
+    maStatusEl.className = "ma-status ma-status-neutral";
+  }
+
+  maEdit.classList.remove("open");
+  maLightbox.classList.remove("open");
+  maOverlay.classList.remove("hidden");
+  maOverlay.setAttribute("aria-hidden", "false");
+}
+
+function closeMobileApproveSheet() {
+  maOverlay.classList.add("hidden");
+  maOverlay.setAttribute("aria-hidden", "true");
+  maEdit.classList.remove("open");
+  maLightbox.classList.remove("open");
+}
+
+maCloseBtn.addEventListener("click", closeMobileApproveSheet);
+maHistoryBtn.addEventListener("click", () => {
+  closeMobileApproveSheet();
+  mobileHistoryTabButton.click();
+});
+
+maViewHint.addEventListener("click", (e) => {
+  e.stopPropagation();
+  maLightbox.classList.add("open");
+});
+maBgImg.addEventListener("click", () => maLightbox.classList.add("open"));
+maLightbox.addEventListener("click", () => maLightbox.classList.remove("open"));
+maLightboxClose.addEventListener("click", (e) => {
+  e.stopPropagation();
+  maLightbox.classList.remove("open");
+});
+
+maPenBtn.addEventListener("click", () => {
+  maEditInput.value = maCurrentAmount.toFixed(2);
+  const golden = (maCurrentTx?.items || [])[0]?.verificationBackofficeAmount;
+  maEditNote.textContent =
+    golden != null && Number(golden) > 0
+      ? `mPay 後台黃金金額：${formatCurrency(golden)}　如與提交不符可在此修正。`
+      : "填寫正確金額後按「接受」即會以新金額核准。";
+  maEdit.classList.add("open");
+});
+maEditCancel.addEventListener("click", () => maEdit.classList.remove("open"));
+maEditSave.addEventListener("click", () => {
+  const v = Number(maEditInput.value || 0);
+  maCurrentAmount = v;
+  maEditedAmount = v;
+  maAmountEl.textContent = formatCurrency(v);
+  maEdit.classList.remove("open");
+});
+
+async function maAct(action) {
+  if (!maCurrentTx) return;
+  const tx = maCurrentTx;
+  maRejectBtn.disabled = true;
+  maAcceptBtn.disabled = true;
+  try {
+    const amountChanged = maEditedAmount != null && Math.abs(maEditedAmount - Number(tx.total_amount || 0)) >= 0.005;
+    if (action === "accept" && amountChanged) {
+      await apiFetch("/api/owner/update-transaction", {
+        method: "POST",
+        body: JSON.stringify({ transactionId: tx.id, totalAmount: maEditedAmount, itemAmounts: [] }),
+      });
+    }
+    await apiFetch(`/api/owner/${action === "accept" ? "approve" : "reject"}`, {
+      method: "POST",
+      body: JSON.stringify({ transactionId: tx.id }),
+    });
+    const label = action === "accept" ? "已接受" : "已拒絕";
+    maShowToast(`${label}：${maNameEl.textContent} · ${formatCurrency(maCurrentAmount)}`, true);
+    closeMobileApproveSheet();
+    invalidateTransactionCache();
+    await loadOwnerData({ showOverlay: true, loadingText: "正在刷新資料...", showRefreshStatus: true, refreshMeta: true });
+  } catch (error) {
+    showError(error instanceof Error ? error.message : "操作失敗");
+    maRejectBtn.disabled = false;
+    maAcceptBtn.disabled = false;
+  }
+}
+
+maAcceptBtn.addEventListener("click", () => maAct("accept"));
+maRejectBtn.addEventListener("click", () => maAct("reject"));
+maToastUndo.addEventListener("click", () => {
+  maToast.classList.remove("show");
+  if (maCurrentTx) openMobileApproveSheet(maCurrentTx);
 });

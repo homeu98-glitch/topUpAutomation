@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>商家批核 · 手機 Swipe 概念稿</title>
+<style>
+  :root {
+    --green: #18a957;
+    --red: #e5484d;
+    --blue: #2f6fed;
+    --bg: #f2f3f5;
+    --card: #ffffff;
+    --ink: #1c1d1f;
+    --muted: #6b7280;
+    --amber: #f5a623;
+    --radius: 22px;
+    --safe: 14px;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    font-family: -apple-system, "PingFang HK", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+    background: #d9dbe0;
+    display: flex; align-items: center; justify-content: center;
+    min-height: 100vh; padding: 18px;
+    color: var(--ink);
+  }
+
+  /* Phone frame */
+  .phone {
+    width: 390px; max-width: 100%;
+    height: 820px; max-height: 92vh;
+    background: #000; border-radius: 46px; padding: 12px;
+    box-shadow: 0 30px 60px rgba(0,0,0,.35);
+    position: relative;
+  }
+  .notch { position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+    width: 130px; height: 26px; background: #000; border-radius: 0 0 16px 16px; z-index: 50; }
+  .screen {
+    width: 100%; height: 100%; background: var(--bg); border-radius: 36px;
+    overflow: hidden; position: relative; display: flex; flex-direction: column;
+  }
+
+  /* Header */
+  /* iOS-style status bar (makes the screenshot read as a real device) */
+  .statusbar { display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 26px 6px; font-size: 14px; font-weight: 700; color: var(--ink); flex: none; }
+  .statusbar .sb-right { display: flex; align-items: center; gap: 7px; }
+  .statusbar svg { display: block; }
+  .home-indicator { flex: none; height: 5px; width: 134px; background: var(--ink);
+    border-radius: 3px; margin: 0 auto 9px; opacity: .85; }
+
+  .hdr {
+    padding: calc(env(safe-area-inset-top, 0px) + 16px) 18px 12px;
+    background: #fff; border-bottom: 1px solid #eceef1;
+    display: flex; align-items: center; justify-content: space-between;
+    z-index: 5;
+  }
+  .hdr .shop { font-weight: 700; font-size: 16px; display: flex; align-items: center; gap: 8px; }
+  .hdr .shop .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--green); }
+  .hdr .count {
+    background: var(--red); color: #fff; font-size: 12px; font-weight: 700;
+    padding: 3px 9px; border-radius: 999px;
+  }
+  .progress { font-size: 12px; color: var(--muted); padding: 8px 18px 0; }
+  .bar { height: 4px; background: #e3e5e9; border-radius: 4px; margin: 6px 18px 0; overflow: hidden; }
+  .bar > i { display: block; height: 100%; background: var(--blue); width: 25%; transition: width .3s; }
+
+  /* Card stage */
+  .stage { flex: 1; position: relative; padding: var(--safe); display: flex; align-items: center; justify-content: center; }
+  .deck { position: relative; width: 320px; height: 560px; perspective: 1200px; }
+
+  .card {
+    position: absolute; inset: 0; background: var(--card); border-radius: var(--radius);
+    box-shadow: 0 12px 30px rgba(0,0,0,.18); overflow: hidden;
+    transform-origin: center bottom; will-change: transform;
+    display: flex; flex-direction: column;
+    transition: transform .35s cubic-bezier(.2,.8,.2,1), opacity .35s;
+    touch-action: pan-y;
+    transform-style: preserve-3d;
+  }
+  .front, .face-back { backface-visibility: hidden; }
+  .card.dragging { transition: none; }
+  .card.out-right { transform: translateX(480px) rotate(18deg); opacity: 0; }
+  .card.out-left  { transform: translateX(-480px) rotate(-18deg); opacity: 0; }
+
+  /* Swipe overlays */
+  .ov { position: absolute; top: 22px; padding: 8px 16px; border-radius: 12px;
+    font-weight: 800; font-size: 20px; border: 3px solid; opacity: 0; z-index: 6; }
+  .ov.accept { right: 18px; color: var(--green); border-color: var(--green); transform: rotate(12deg); }
+  .ov.reject { left: 18px; color: var(--red); border-color: var(--red); transform: rotate(-12deg); }
+
+  /* Front face */
+  .imgwrap { position: relative; height: 300px; background: #111; flex: none; }
+  .imgwrap img { width: 100%; height: 100%; object-fit: cover; }
+  .badge {
+    position: absolute; top: 12px; left: 12px; font-size: 12px; font-weight: 700;
+    padding: 5px 10px; border-radius: 999px; color: #fff; z-index: 4;
+    backdrop-filter: blur(4px); background: rgba(0,0,0,.45);
+  }
+  .badge.ok { background: rgba(24,169,87,.92); }
+  .badge.warn { background: rgba(245,166,35,.95); }
+  .badge.skip { background: rgba(107,114,128,.92); }
+
+  .body { padding: 14px 16px 16px; flex: 1; display: flex; flex-direction: column; gap: 10px; }
+
+  .submitter { display: flex; align-items: center; gap: 10px; }
+  .avatar { width: 38px; height: 38px; border-radius: 50%; background: var(--blue); color: #fff;
+    display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px; flex: none; }
+  .submitter .nm { font-weight: 700; font-size: 14px; }
+  .submitter .ph { font-size: 12px; color: var(--muted); }
+  .submitter .cc { margin-left: auto; font-size: 11px; color: var(--muted); background: #eef0f3;
+    padding: 4px 8px; border-radius: 8px; }
+
+  .amount-row { display: flex; align-items: baseline; gap: 8px; }
+  .amount-row .lbl { font-size: 12px; color: var(--muted); }
+  .amount { font-size: 30px; font-weight: 800; letter-spacing: .5px; }
+  .amount.gold::after { content: " ✓"; color: var(--green); font-size: 16px; }
+  .amount.miss { color: var(--red); }
+
+  .meta { font-size: 12px; color: var(--muted); line-height: 1.5; }
+  .meta b { color: var(--ink); font-weight: 600; }
+
+  .hint { margin-top: auto; text-align: center; font-size: 12px; color: var(--muted); }
+  .hint b.a { color: var(--green); } .hint b.r { color: var(--red); }
+
+  /* Back (edit) face */
+  .card.flipped { transform: rotateY(180deg); }
+  .face-back { position: absolute; inset: 0; backface-visibility: hidden;
+    background: var(--card); border-radius: var(--radius); padding: 18px 16px;
+    display: flex; flex-direction: column; gap: 14px; transform: rotateY(180deg); }
+  .face-back h4 { margin: 0; font-size: 15px; }
+  .edit-field label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+  .edit-field input { width: 100%; font-size: 22px; font-weight: 700; padding: 10px 12px;
+    border: 2px solid #d7dae0; border-radius: 12px; outline: none; }
+  .edit-field input:focus { border-color: var(--blue); }
+  .gold-line { font-size: 13px; background: #fff8e6; color: #8a5b00; padding: 10px 12px;
+    border-radius: 10px; border: 1px solid #ffe2a8; }
+  .gold-line b { color: #8a5b00; }
+  .back-actions { margin-top: auto; display: flex; gap: 10px; }
+  .back-actions button { flex: 1; }
+
+  /* Footer buttons */
+  .footer { padding: 14px 16px calc(env(safe-area-inset-bottom,0px) + 16px); display: flex; gap: 12px;
+    background: #fff; border-top: 1px solid #eceef1; }
+  .fb { flex: 1; height: 54px; border-radius: 16px; border: none; font-size: 16px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; }
+  .fb.reject { background: #fdecec; color: var(--red); }
+  .fb.edit { flex: none; width: 60px; background: #eef0f3; color: var(--muted); }
+  .fb.accept { background: var(--green); color: #fff; }
+  .fb:active { transform: scale(.97); }
+
+  /* Toast + Undo */
+  .toast { position: absolute; left: 50%; bottom: 96px; transform: translateX(-50%) translateY(20px);
+    background: rgba(28,29,31,.94); color: #fff; padding: 11px 16px; border-radius: 14px;
+    font-size: 13px; opacity: 0; pointer-events: none; transition: all .25s; z-index: 30; display: flex; gap: 14px; align-items: center; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); pointer-events: auto; }
+  .toast button { background: none; border: none; color: #7cc4ff; font-weight: 700; font-size: 13px; cursor: pointer; }
+
+  .empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 8px; color: var(--muted); font-size: 14px; }
+  .legend { position: absolute; bottom: 10px; left: 12px; right: 12px; font-size: 11px; color: #8a8f98; text-align: center; }
+  .kbd { font-size: 11px; color: #8a8f98; text-align: center; padding: 2px 0; }
+</style>
+</head>
+<body>
+  <div class="phone">
+    <div class="notch"></div>
+    <div class="screen">
+      <div class="statusbar">
+        <span>14:35</span>
+        <span class="sb-right">
+          <svg width="18" height="12" viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1" fill="#1c1d1f"/><rect x="5" y="5" width="3" height="7" rx="1" fill="#1c1d1f"/><rect x="10" y="2" width="3" height="10" rx="1" fill="#1c1d1f"/><rect x="15" y="0" width="3" height="12" rx="1" fill="#1c1d1f"/></svg>
+          <svg width="17" height="12" viewBox="0 0 17 12"><path d="M8.5 2.2c2.7 0 5.2 1 7 2.7l1.2-1.3C14.6 1.4 11.7.2 8.5.2S2.4 1.4.8 3.6l1.2 1.3c1.8-1.7 4.3-2.7 7-2.7z" fill="#1c1d1f"/><path d="M8.5 5.4c1.5 0 2.9.6 3.9 1.6l1.3-1.4C12.2 4.2 10.5 3.4 8.5 3.4S4.8 4.2 3.3 5.6l1.3 1.4c1-1 2.4-1.6 3.9-1.6z" fill="#1c1d1f"/><circle cx="8.5" cy="9.6" r="1.8" fill="#1c1d1f"/></svg>
+          <svg width="27" height="13" viewBox="0 0 27 13"><rect x="0.5" y="0.5" width="22" height="12" rx="3" fill="none" stroke="#1c1d1f" stroke-width="1"/><rect x="2.5" y="2.5" width="17" height="8" rx="1.5" fill="#1c1d1f"/><rect x="24" y="4" width="2" height="5" rx="1" fill="#1c1d1f"/></svg>
+        </span>
+      </div>
+      <div class="hdr">
+        <div class="shop"><span class="dot"></span> 表嫂美食</div>
+        <div class="count" id="count">3 待批</div>
+      </div>
+      <div class="progress">待批進度 <span id="pos">1 / 3</span></div>
+      <div class="bar"><i id="bar"></i></div>
+
+      <div class="stage">
+        <div class="deck" id="deck"></div>
+        <div class="empty" id="empty" style="display:none">
+          <div style="font-size:40px">✅</div>
+          <div>全部處理完畢</div>
+        </div>
+        <div class="toast" id="toast"><span id="toastMsg"></span><button id="undoBtn">復原</button></div>
+      </div>
+
+      <div class="footer">
+        <button class="fb reject" id="btnReject">✕ 拒絕</button>
+        <button class="fb edit" id="btnEdit">✎</button>
+        <button class="fb accept" id="btnAccept">✓ 接受</button>
+      </div>
+      <div class="kbd">鍵盤：← 拒絕 · → 接受 · ↑ 編輯（desktop 測試用）</div>
+      <div class="home-indicator"></div>
+    </div>
+  </div>
+
+<script>
+/* ---------- 概念用 sample data ---------- */
+const SAMPLE = [
+  {
+    id: "t1", customer_code: "63936541", name: "陳大文", phone: "6393 6541",
+    amount: "128.00", amountState: "gold",  // 已核對
+    merchant: "表嫂美食", orderNo: "MP2409-7781",
+    img: "data:image/svg+xml;utf8," + encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='320' height='300'><rect width='320' height='300' fill='#1f2430'/><text x='20' y='40' fill='#9fe6b0' font-size='22' font-family='monospace'>mPay 交易紀錄</text><text x='20' y='90' fill='#fff' font-size='34' font-family='monospace'>MOP 128.00</text><text x='20' y='140' fill='#cfd3da' font-size='16' font-family='monospace'>商戶：表嫂美食</text><text x='20' y='175' fill='#cfd3da' font-size='16' font-family='monospace'>單號：MP2409-7781</text><text x='20' y='210' fill='#9fe6b0' font-size='16' font-family='monospace'>✓ 已對數</text></svg>`),
+    badge: { cls: "ok", txt: "✓ 金額已核對" },
+    meta: "商戶：<b>表嫂美食</b> · 單號：<b>MP2409-7781</b><br>AI 已比對 mPay 後台黃金金額一致"
+  },
+  {
+    id: "t2", customer_code: "62881200", name: "李小華", phone: "6288 1200",
+    amount: "—", amountState: "miss",  // 缺失
+    merchant: "未知", orderNo: "—",
+    img: "data:image/svg+xml;utf8," + encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='320' height='300'><rect width='320' height='300' fill='#23201a'/><text x='20' y='60' fill='#e8b07a' font-size='20' font-family='monospace'>模糊截圖</text><text x='20' y='120' fill='#fff' font-size='20' font-family='monospace'>金額未能辨識</text><text x='20' y='170' fill='#cbb08a' font-size='15' font-family='monospace'>請人工輸入金額</text></svg>`),
+    badge: { cls: "warn", txt: "⚠ 金額待確認" },
+    meta: "商戶：<b>未能辨識</b> · 訂單號：<b>—</b><br>AI 未偵測到金額，需先填寫才能核准"
+  },
+  {
+    id: "t3", customer_code: "65001122", name: "黃志明", phone: "6500 1122",
+    amount: "320.00", amountState: "warn",  // 與後台不符
+    merchant: "表嫂美食", orderNo: "MP2409-8023",
+    goldAmount: "300.00",
+    img: "data:image/svg+xml;utf8," + encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='320' height='300'><rect width='320' height='300' fill='#1f2430'/><text x='20' y='40' fill='#9fe6b0' font-size='22' font-family='monospace'>mPay 交易紀錄</text><text x='20' y='90' fill='#ffd479' font-size='34' font-family='monospace'>MOP 320.00</text><text x='20' y='140' fill='#cfd3da' font-size='16' font-family='monospace'>商戶：表嫂美食</text><text x='20' y='175' fill='#ffd479' font-size='16' font-family='monospace'>! 與後台 300 不符</text></svg>`),
+    badge: { cls: "warn", txt: "⚠ 金額不符" },
+    meta: "商戶：<b>表嫂美食</b> · 單號：<b>MP2409-8023</b><br>mPay 黃金金額 <b>MOP 300.00</b>，建議以後台為準"
+  }
+];
+
+let idx = 0;
+const deck = document.getElementById("deck");
+const countEl = document.getElementById("count");
+const posEl = document.getElementById("pos");
+const barEl = document.getElementById("bar");
+const emptyEl = document.getElementById("empty");
+const toast = document.getElementById("toast");
+const toastMsg = document.getElementById("toastMsg");
+const undoBtn = document.getElementById("undoBtn");
+
+let lastAction = null; // {type, card, data}
+let draggedCard = null, startX = 0, startY = 0, dx = 0, dy = 0, dragging = false;
+
+function render() {
+  deck.innerHTML = "";
+  const remaining = SAMPLE.length - idx;
+  countEl.textContent = remaining + " 待批";
+  if (remaining <= 0) { emptyEl.style.display = "flex"; barEl.style.width = "100%"; posEl.textContent = "完成"; return; }
+  posEl.textContent = (idx + 1) + " / " + SAMPLE.length;
+  barEl.style.width = ((idx) / SAMPLE.length * 100) + "%";
+
+  // render up to 2 stacked cards (next behind current) for depth
+  for (let i = Math.min(idx + 1, SAMPLE.length - 1); i >= idx; i--) {
+    const c = buildCard(SAMPLE[i], i === idx);
+    if (i === idx + 1) c.style.transform = "scale(.94) translateY(14px)";
+    deck.appendChild(c);
+  }
+}
+
+function buildCard(d, isTop) {
+  const el = document.createElement("div");
+  el.className = "card";
+  el.dataset.id = d.id;
+  el.innerHTML = `
+    <div class="ov accept">接受 ✓</div>
+    <div class="ov reject">✕ 拒絕</div>
+    <div class="front">
+      <div class="imgwrap">
+        <span class="badge ${d.badge.cls}">${d.badge.txt}</span>
+        <img src="${d.img}" alt="收據"/>
+      </div>
+      <div class="body">
+        <div class="submitter">
+          <div class="avatar">${d.name.slice(0,1)}</div>
+          <div>
+            <div class="nm">${d.name}</div>
+            <div class="ph">${d.phone}</div>
+          </div>
+          <div class="cc">${d.customer_code}</div>
+        </div>
+        <div class="amount-row">
+          <span class="lbl">提交金額</span>
+          <span class="amount ${d.amountState==='gold'?'gold':d.amountState==='miss'?'miss':''}">${d.amount==='—'?'—':('MOP '+d.amount)}</span>
+        </div>
+        <div class="meta">${d.meta}</div>
+        <div class="hint"><b class="r">← 拖左拒絕</b> &nbsp;·&nbsp; <b class="a">拖右接受 →</b><br>向上拖 / 撳 ✎ 改金額</div>
+      </div>
+    </div>
+    <div class="face-back">
+      <h4>修正交易金額</h4>
+      <div class="edit-field">
+        <label>可編輯金額 (MOP)</label>
+        <input type="number" min="0" step="0.01" value="${d.amount==='—'?'0.00':d.amount}"/>
+      </div>
+      ${d.goldAmount ? `<div class="gold-line">mPay 後台黃金金額：<b>MOP ${d.goldAmount}</b><br>與提交不符，建議以此為準。</div>` : `<div class="gold-line">沒有後台對數，請按實際收據輸入。</div>`}
+      <div class="back-actions">
+        <button class="fb reject" data-act="cancel">返回</button>
+        <button class="fb accept" data-act="save">儲存修改</button>
+      </div>
+    </div>
+  `;
+  if (isTop) attachSwipe(el, d);
+  return el;
+}
+
+function attachSwipe(el, d) {
+  const front = el.querySelector(".front");
+  const ovA = el.querySelector(".ov.accept");
+  const ovR = el.querySelector(".ov.reject");
+
+  // Flip toggle (tap edit button handles separately)
+  el.addEventListener("pointerdown", (e) => {
+    if (el.classList.contains("flipped")) return;
+    dragging = true; draggedCard = el; el.classList.add("dragging");
+    startX = e.clientX; startY = e.clientY; dx = 0; dy = 0;
+    el.setPointerCapture(e.pointerId);
+  });
+  el.addEventListener("pointermove", (e) => {
+    if (!dragging) return;
+    dx = e.clientX - startX; dy = e.clientY - startY;
+    // lock to mostly-horizontal swipe (avoid hijacking vertical scroll)
+    const rot = dx / 18;
+    el.style.transform = `translate(${dx}px, ${dy*0.25}px) rotate(${rot}deg)`;
+    const p = Math.min(Math.abs(dx) / 110, 1);
+    ovA.style.opacity = dx > 0 ? p : 0;
+    ovR.style.opacity = dx < 0 ? p : 0;
+    if (Math.abs(dy) > 70 && Math.abs(dy) > Math.abs(dx) && !el.classList.contains("flipped")) {
+      // upward drag -> flip to edit
+      dragging = false; el.classList.remove("dragging");
+      flip(el, true);
+    }
+  });
+  el.addEventListener("pointerup", (e) => {
+    if (!dragging) return;
+    dragging = false; el.classList.remove("dragging");
+    if (dx > 110) { commit(el, d, "accept"); }
+    else if (dx < -110) { commit(el, d, "reject"); }
+    else { el.style.transform = ""; ovA.style.opacity = 0; ovR.style.opacity = 0; }
+  });
+
+  // back-face buttons
+  el.querySelector('[data-act="cancel"]').addEventListener("click", () => flip(el, false));
+  el.querySelector('[data-act="save"]').addEventListener("click", () => {
+    const v = el.querySelector(".face-back input").value;
+    d.amount = v; d.amountState = "gold";
+    flip(el, false);
+    // reflect on front
+    const amt = el.querySelector(".amount");
+    amt.textContent = "MOP " + v; amt.className = "amount gold";
+    toastMsg.textContent = "已更新金額 MOP " + v; showToast(false);
+  });
+}
+
+function flip(el, toBack) {
+  el.classList.toggle("flipped", toBack);
+  el.style.transform = "";
+}
+
+function commit(el, d, type) {
+  if (type === "accept" && d.amountState === "miss") {
+    // amount missing -> open edit instead of approving
+    flip(el, true);
+    toastMsg.textContent = "金額缺失，請先填寫"; showToast(false);
+    return;
+  }
+  el.classList.add(type === "accept" ? "out-right" : "out-left");
+  lastAction = { type, el, d };
+  const label = type === "accept" ? "已接受" : "已拒絕";
+  toastMsg.textContent = label + "：" + d.name + " · " + (d.amount==='—'?'—':'MOP '+d.amount);
+  showToast(true);
+  setTimeout(() => { idx++; render(); }, 360);
+}
+
+let toastTimer = null;
+function showToast(withUndo) {
+  undoBtn.style.display = withUndo ? "inline" : "none";
+  toast.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove("show"), withUndo ? 4000 : 1800);
+}
+undoBtn.addEventListener("click", () => {
+  if (!lastAction) return;
+  // restore the card back to top
+  toast.classList.remove("show");
+  idx = Math.max(0, idx - 1);
+  render();
+  lastAction = null;
+});
+
+// Footer buttons
+document.getElementById("btnAccept").addEventListener("click", () => {
+  const top = deck.querySelector(".card:not(.flipped)"); if (!top) return;
+  const d = SAMPLE[idx]; commit(top, d, "accept");
+});
+document.getElementById("btnReject").addEventListener("click", () => {
+  const top = deck.querySelector(".card:not(.flipped)"); if (!top) return;
+  const d = SAMPLE[idx]; commit(top, d, "reject");
+});
+document.getElementById("btnEdit").addEventListener("click", () => {
+  const top = deck.querySelector(".card:not(.flipped)"); if (!top) return;
+  flip(top, true);
+});
+
+// Keyboard (desktop testing)
+document.addEventListener("keydown", (e) => {
+  if (SAMPLE.length - idx <= 0) return;
+  if (e.key === "ArrowRight") document.getElementById("btnAccept").click();
+  else if (e.key === "ArrowLeft") document.getElementById("btnReject").click();
+  else if (e.key === "ArrowUp") document.getElementById("btnEdit").click();
+});
+
+render();
+</script>
+</body>
+</html>

@@ -935,6 +935,11 @@ function renderTransactions(transactions) {
       }
     });
   });
+
+  if (maWantAutoOpen && String(state.mode || "") === "pending") {
+    maWantAutoOpen = false;
+    openFirstPendingMobileSheet();
+  }
 }
 
 async function runOwnerAutoApprovalSweep() {
@@ -1567,6 +1572,7 @@ let maCurrentTx = null;
 let maCurrentAmount = 0;
 let maEditedAmount = null;
 let maToastTimer = null;
+let maWantAutoOpen = true;
 
 function maShowToast(message, withUndo) {
   maToastMsg.textContent = message;
@@ -1636,6 +1642,13 @@ function closeMobileApproveSheet() {
   maLightbox.classList.remove("open");
 }
 
+function openFirstPendingMobileSheet() {
+  if (!isMobileView()) return;
+  if (!maOverlay.classList.contains("hidden")) return;
+  const firstPending = (state.transactions || []).find((t) => String(t.status || "") === "pending");
+  if (firstPending) openMobileApproveSheet(firstPending);
+}
+
 maCloseBtn.addEventListener("click", closeMobileApproveSheet);
 maHistoryBtn.addEventListener("click", () => {
   closeMobileApproveSheet();
@@ -1693,6 +1706,7 @@ async function maAct(action) {
     closeMobileApproveSheet();
     invalidateTransactionCache();
     await loadOwnerData({ showOverlay: true, loadingText: "正在刷新資料...", showRefreshStatus: true, refreshMeta: true });
+    openFirstPendingMobileSheet();
   } catch (error) {
     showError(error instanceof Error ? error.message : "操作失敗");
     maRejectBtn.disabled = false;
@@ -1705,4 +1719,15 @@ maRejectBtn.addEventListener("click", () => maAct("reject"));
 maToastUndo.addEventListener("click", () => {
   maToast.classList.remove("show");
   if (maCurrentTx) openMobileApproveSheet(maCurrentTx);
+});
+
+// 進入 pending 列表（初始載入 / 撳待審核 tab / 手動重新整理）時，手機版自動開新全屏 sheet
+mobilePendingTabButton.addEventListener("click", () => {
+  maWantAutoOpen = true;
+});
+mobileMenuRefreshButton.addEventListener("click", () => {
+  maWantAutoOpen = true;
+});
+refreshDashboardButton.addEventListener("click", () => {
+  maWantAutoOpen = true;
 });

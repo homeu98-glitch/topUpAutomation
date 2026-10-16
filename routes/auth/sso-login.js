@@ -27,6 +27,7 @@ export default async function handler(req, res) {
 
     writeSession(res, {
       role: payload.user.role,
+      adminLogin: payload.user.adminLogin || null,
       memberCode: payload.user.memberCode || null,
       ownerLogin: payload.user.ownerLogin || null,
       authSource: payload.user.authSource || "membership",

@@ -161,6 +161,55 @@ async function apiFetch(path, options = {}) {
   return payload;
 }
 
+function extractMembershipToken() {
+  const query = new URLSearchParams(window.location.search);
+  if (query.get("ssoToken")) return query.get("ssoToken");
+  if (query.get("membershipToken")) return query.get("membershipToken");
+  if (query.get("token")) return query.get("token");
+  const hash = window.location.hash.startsWith("#") ? window.location.hash.slice(1) : window.location.hash;
+  const hashParams = new URLSearchParams(hash);
+  return hashParams.get("ssoToken") || hashParams.get("membershipToken") || hashParams.get("token") || "";
+}
+
+function clearMembershipTokenFromUrl() {
+  const url = new URL(window.location.href);
+  url.searchParams.delete("ssoToken");
+  url.searchParams.delete("membershipToken");
+  url.searchParams.delete("token");
+  url.hash = "";
+  window.history.replaceState({}, document.title, url.toString());
+}
+
+async function loginAdminFromMembershipToken(token) {
+  resetError();
+  try {
+    const payload = await apiFetch("/api/auth/sso-login", {
+      method: "POST",
+      body: JSON.stringify({ ssoToken: token }),
+    });
+    if (payload.user?.role !== "admin") {
+      throw new Error("此登入憑證不是管理員身份");
+    }
+    if (payload.redirect?.path && payload.redirect.path !== window.location.pathname) {
+      const target = payload.redirect.path.startsWith("http")
+        ? payload.redirect.path
+        : `${window.location.origin}${payload.redirect.path}`;
+      window.location.href = target;
+      return;
+    }
+    state.user = payload.user;
+    clearMembershipTokenFromUrl();
+    renderSession();
+    await loadShops();
+    await loadAdminData({ showOverlay: true, loadingText: "正在載入跨店舖資料..." });
+  } catch (error) {
+    showError(error instanceof Error ? error.message : "主系統登入失敗");
+  } finally {
+    setAuthBooting(false);
+    renderSession();
+  }
+}
+
 function renderSession() {
   const isAdmin = state.user?.role === "admin";
   adminHeaderSession.classList.toggle("hidden", !isAdmin);
@@ -935,6 +984,11 @@ adminRunAutoApproveNowButton.addEventListener("click", async () => {
 
 window.addEventListener("load", async () => {
   try {
+    const membershipToken = extractMembershipToken();
+    if (membershipToken) {
+      await loginAdminFromMembershipToken(membershipToken);
+      return;
+    }
     await loadSession();
   } catch (error) {
     showError(error instanceof Error ? error.message : "初始化失敗");
